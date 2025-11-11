@@ -1,0 +1,115 @@
+version: '3.8'
+
+services:
+  # Local Node Services (runs on UP Board)
+  mqtt:
+    image: eclipse-mosquitto:2.0
+    container_name: ia-mqtt
+    ports:
+      - "1883:1883"
+      - "9001:9001"
+    volumes:
+      - ./deployment/docker/mosquitto/mosquitto.conf:/mosquitto/config/mosquitto.conf
+      - mqtt-data:/mosquitto/data
+      - mqtt-logs:/mosquitto/log
+    restart: unless-stopped
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: ia-backend
+    ports:
+      - "3000:3000"
+      - "3001:3001"  # WebSocket
+    volumes:
+      - ./backend:/app
+      - /var/run/dbus:/var/run/dbus  # For Bluetooth
+      - node-modules:/app/node_modules
+    environment:
+      - NODE_ENV=production
+      - MQTT_BROKER=mqtt://mqtt:1883
+      - DATABASE_PATH=/data/automation.db
+      - LOG_LEVEL=info
+    depends_on:
+      - mqtt
+    devices:
+      - /dev/ttyUSB0:/dev/ttyUSB0  # Serial for Modbus/Radio
+      - /dev/ttyUSB1:/dev/ttyUSB1
+    privileged: true  # For hardware access
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: ia-frontend
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./frontend/build:/usr/share/nginx/html:ro
+      - ./deployment/docker/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+  # Central Server Services (runs on central server, not UP Board)
+  postgres:
+    image: timescale/timescaledb:latest-pg15
+    container_name: ia-postgres
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_DB=industrial_automation
+      - POSTGRES_USER=ia_user
+      - POSTGRES_PASSWORD=changeme
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./central-server/database/init.sql:/docker-entrypoint-initdb.d/init.sql
+    restart: unless-stopped
+    profiles:
+      - central
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: ia-grafana
+    ports:
+      - "3002:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=changeme
+      - GF_INSTALL_PLUGINS=
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./central-server/dashboards:/etc/grafana/provisioning/dashboards
+    depends_on:
+      - postgres
+    restart: unless-stopped
+    profiles:
+      - central
+
+  aggregator:
+    build:
+      context: ./central-server/aggregator
+      dockerfile: Dockerfile
+    container_name: ia-aggregator
+    environment:
+      - DATABASE_URL=postgresql://ia_user:changeme@postgres:5432/industrial_automation
+      - MQTT_BROKER=mqtt://mqtt:1883
+    depends_on:
+      - postgres
+      - mqtt
+    restart: unless-stopped
+    profiles:
+      - central
+
+volumes:
+  mqtt-data:
+  mqtt-logs:
+  node-modules:
+  postgres-data:
+  grafana-data:
+
+networks:
+  default:
+    name: ia-network
