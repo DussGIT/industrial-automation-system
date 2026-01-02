@@ -102,6 +102,17 @@ const api = {
   getInterfaceTypes: async () => {
     const { data } = await apiClient.get('/interfaces/types')
     return data
+  },
+
+  // Generic methods for custom requests
+  post: async (url, body) => {
+    const { data } = await apiClient.post(url, body)
+    return data
+  },
+
+  get: async (url, params) => {
+    const { data } = await apiClient.get(url, { params })
+    return data
   }
 }
 

@@ -1,6 +1,6 @@
 import React from 'react'
 import { Link, useLocation } from 'react-router-dom'
-import { LayoutDashboard, Workflow, BarChart3, Settings, Cpu } from 'lucide-react'
+import { LayoutDashboard, Workflow, BarChart3, Settings, Cpu, FileText, Volume2, Radio, Wifi, Bluetooth } from 'lucide-react'
 
 const Layout = ({ children }) => {
   const location = useLocation()
@@ -10,6 +10,11 @@ const Layout = ({ children }) => {
     { path: '/flows', icon: Workflow, label: 'Flows' },
     { path: '/analytics', icon: BarChart3, label: 'Analytics' },
     { path: '/interfaces', icon: Cpu, label: 'Interfaces' },
+    { path: '/devices', icon: Radio, label: 'Devices' },
+    { path: '/xbee', icon: Wifi, label: 'XBee Monitor' },
+    { path: '/bluetooth', icon: Bluetooth, label: 'Bluetooth' },
+    { path: '/audio', icon: Volume2, label: 'Audio Library' },
+    { path: '/logs', icon: FileText, label: 'Logs' },
     { path: '/settings', icon: Settings, label: 'Settings' }
   ]
 
@@ -44,9 +49,27 @@ const Layout = ({ children }) => {
       </aside>
 
       {/* Main content */}
-      <main className="flex-1 overflow-auto">
-        {children}
-      </main>
+      <div className="flex-1 flex flex-col">
+        <main className="flex-1 overflow-auto">
+          {children}
+        </main>
+        
+        {/* Footer */}
+        <footer className="bg-dark-surface border-t border-dark-border py-2 px-8">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3 h-12">
+              <img 
+                src="/assets/duss-logo.png?v=2" 
+                alt="DussTech Logo" 
+                className="h-full object-contain"
+              />
+            </div>
+            <div className="text-sm text-gray-400">
+              © {new Date().getFullYear()} Albert Dussinger. All rights reserved.
+            </div>
+          </div>
+        </footer>
+      </div>
     </div>
   )
 }

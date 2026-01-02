@@ -1,15 +1,20 @@
-FROM node:20-alpine
+FROM node:20-slim
 
 WORKDIR /app
 
-# Install Python for future protocol integrations
-RUN apk add --no-cache python3 py3-pip
+# Install build dependencies for native modules and libgpiod
+RUN apt-get update && apt-get install -y \
+    python3 \
+    build-essential \
+    libgpiod-dev \
+    gpiod \
+    && rm -rf /var/lib/apt/lists/*
 
 # Copy package files
 COPY package*.json ./
 
-# Install dependencies
-RUN npm ci --only=production
+# Install dependencies (include all for native modules)
+RUN npm install
 
 # Copy source code
 COPY src ./src

@@ -86,14 +86,19 @@ router.post('/analytics/metrics', (req, res) => {
 router.get('/analytics/logs', (req, res) => {
   try {
     const db = getDb();
-    const { level, limit = 100, offset = 0 } = req.query;
+    const { level, service, limit = 100, offset = 0 } = req.query;
     
-    let query = 'SELECT * FROM system_logs';
+    let query = 'SELECT * FROM system_logs WHERE 1=1';
     const params = [];
     
     if (level) {
-      query += ' WHERE level = ?';
+      query += ' AND level = ?';
       params.push(level);
+    }
+    
+    if (service) {
+      query += ' AND service = ?';
+      params.push(service);
     }
     
     query += ' ORDER BY timestamp DESC LIMIT ? OFFSET ?';
@@ -102,7 +107,20 @@ router.get('/analytics/logs', (req, res) => {
     const stmt = db.prepare(query);
     const logs = stmt.all(...params);
     
-    res.json({ success: true, logs });
+    res.json(logs);
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// Clear all system logs
+router.post('/analytics/logs/clear', (req, res) => {
+  try {
+    const db = getDb();
+    const stmt = db.prepare('DELETE FROM system_logs');
+    const result = stmt.run();
+    
+    res.json({ success: true, deleted: result.changes });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
   }

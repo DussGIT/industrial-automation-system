@@ -1,0 +1,57 @@
+version: '3.8'
+
+services:
+  mqtt:
+    image: eclipse-mosquitto:2.0
+    container_name: ia-mqtt
+    ports:
+      - "1883:1883"
+      - "9001:9001"
+    volumes:
+      - ./deployment/docker/mosquitto/mosquitto.conf:/mosquitto/config/mosquitto.conf
+      - mqtt-data:/mosquitto/data
+      - mqtt-logs:/mosquitto/log
+    restart: unless-stopped
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: ia-backend
+    ports:
+      - "3000:3000"
+      - "3001:3001"
+    volumes:
+      - ./backend/data:/data
+      - ./backend/logs:/logs
+      - /var/run/dbus:/var/run/dbus
+    devices:
+      - /dev/gpiochip0:/dev/gpiochip0
+      - /dev/gpiochip1:/dev/gpiochip1
+      - /dev/gpiochip2:/dev/gpiochip2
+      - /dev/gpiochip3:/dev/gpiochip3
+      - /dev/gpiochip4:/dev/gpiochip4
+    environment:
+      - NODE_ENV=production
+      - MQTT_BROKER=mqtt://mqtt:1883
+      - DATABASE_PATH=/data/automation.db
+      - LOG_LEVEL=info
+    depends_on:
+      - mqtt
+    privileged: true
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: ia-frontend
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+volumes:
+  mqtt-data:
+  mqtt-logs:

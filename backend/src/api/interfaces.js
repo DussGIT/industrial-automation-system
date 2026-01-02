@@ -15,6 +15,45 @@ router.get('/interfaces', (req, res) => {
   }
 });
 
+// Get supported interface types (must be before /:id route)
+router.get('/interfaces/types', (req, res) => {
+  res.json({
+    success: true,
+    types: [
+      {
+        type: 'radio-ritron-dtx',
+        name: 'Ritron DTX Radio',
+        category: 'radio',
+        description: 'Ritron DTX radio interface'
+      },
+      {
+        type: 'radio-motorola-dlr',
+        name: 'Motorola DLR Radio',
+        category: 'radio',
+        description: 'Motorola DLR digital radio'
+      },
+      {
+        type: 'zigbee',
+        name: 'Zigbee',
+        category: 'wireless',
+        description: 'Zigbee mesh network'
+      },
+      {
+        type: 'camera-ip',
+        name: 'IP Camera',
+        category: 'camera',
+        description: 'Network IP camera'
+      },
+      {
+        type: 'mqtt',
+        name: 'MQTT',
+        category: 'network',
+        description: 'MQTT messaging protocol'
+      }
+    ]
+  });
+});
+
 // Get single interface
 router.get('/interfaces/:id', (req, res) => {
   try {
@@ -63,63 +102,6 @@ router.delete('/interfaces/:id', (req, res) => {
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
   }
-});
-
-// Get supported interface types
-router.get('/interfaces/types', (req, res) => {
-  res.json({
-    success: true,
-    types: [
-      {
-        type: 'radio-ritron-dtx',
-        name: 'Ritron DTX Radio',
-        category: 'radio',
-        description: 'Ritron DTX radio interface'
-      },
-      {
-        type: 'radio-motorola-dlr',
-        name: 'Motorola DLR Radio',
-        category: 'radio',
-        description: 'Motorola DLR digital radio'
-      },
-      {
-        type: 'zigbee',
-        name: 'Zigbee',
-        category: 'wireless',
-        description: 'Zigbee mesh network'
-      },
-      {
-        type: 'bluetooth',
-        name: 'Bluetooth/BLE',
-        category: 'wireless',
-        description: 'Bluetooth and Bluetooth Low Energy'
-      },
-      {
-        type: 'modbus-tcp',
-        name: 'Modbus TCP',
-        category: 'network',
-        description: 'Modbus TCP/IP protocol'
-      },
-      {
-        type: 'modbus-rtu',
-        name: 'Modbus RTU',
-        category: 'network',
-        description: 'Modbus RTU serial protocol'
-      },
-      {
-        type: 'opcua',
-        name: 'OPC UA',
-        category: 'network',
-        description: 'OPC Unified Architecture'
-      },
-      {
-        type: 'mqtt',
-        name: 'MQTT',
-        category: 'network',
-        description: 'MQTT messaging protocol'
-      }
-    ]
-  });
 });
 
 module.exports = { router };

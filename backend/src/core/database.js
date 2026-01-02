@@ -1,63 +1,29 @@
-// NOTE: Using in-memory database for now
-// To use SQLite, install Python and build tools, then: npm install better-sqlite3
+const Database = require('better-sqlite3');
 const path = require('path');
 const fs = require('fs');
 const logger = require('./logger');
 
 let db = null;
-let inMemoryDB = {
-  flows: [],
-  flowExecutions: [],
-  interfaces: [],
-  analytics: [],
-  systemLogs: []
-};
 
 const initialize = () => {
   try {
-    // Using in-memory database
-    db = {
-      prepare: (sql) => ({
-        run: (...params) => {
-          // Simple in-memory implementation
-          logger.debug(`SQL: ${sql}`);
-          return { changes: 1 };
-        },
-        get: (...params) => {
-          // Return first matching record
-          if (sql.includes('FROM flows')) {
-            return inMemoryDB.flows[0];
-          }
-          return null;
-        },
-        all: (...params) => {
-          // Return all matching records
-          if (sql.includes('FROM flows')) {
-            return inMemoryDB.flows;
-          } else if (sql.includes('FROM flow_executions')) {
-            return inMemoryDB.flowExecutions;
-          } else if (sql.includes('FROM interfaces')) {
-            return inMemoryDB.interfaces;
-          } else if (sql.includes('FROM analytics')) {
-            return inMemoryDB.analytics;
-          } else if (sql.includes('FROM system_logs')) {
-            return inMemoryDB.systemLogs;
-          }
-          return [];
-        }
-      }),
-      exec: (sql) => {
-        logger.debug(`EXEC: ${sql}`);
-      }
-    };
+    // Use SQLite database - /data is mounted from host
+    const dbPath = '/data/flows.db';
+    const dataDir = path.dirname(dbPath);
     
-    // Create tables (in-memory structure already exists)
+    // Create data directory if it doesn't exist
+    if (!fs.existsSync(dataDir)) {
+      fs.mkdirSync(dataDir, { recursive: true });
+    }
+    
+    db = new Database(dbPath);
+    db.pragma('journal_mode = WAL'); // Better performance
+    
+    logger.info('SQLite database initialized successfully');
     createTables();
-    
-    logger.info('In-memory database initialized successfully');
-    logger.warn('Using in-memory database - data will not persist! Install better-sqlite3 for persistence.');
+    return db;
   } catch (error) {
-    logger.error('Database initialization failed:', error);
+    logger.error('Failed to initialize database:', error);
     throw error;
   }
 };
@@ -147,6 +113,51 @@ const createTables = () => {
   db.exec(`
     CREATE INDEX IF NOT EXISTS idx_system_logs_timestamp 
     ON system_logs(timestamp)
+  `);
+  
+  // Audio files library
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS audio_files (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL,
+      description TEXT,
+      filename TEXT NOT NULL,
+      filepath TEXT NOT NULL,
+      format TEXT NOT NULL,
+      size INTEGER NOT NULL,
+      duration REAL,
+      created_at INTEGER DEFAULT (strftime('%s', 'now'))
+    )
+  `);
+  
+  db.exec(`
+    CREATE INDEX IF NOT EXISTS idx_audio_files_created_at 
+    ON audio_files(created_at)
+  `);
+  
+  // Devices table (unified storage for all device types)
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS devices (
+      address TEXT PRIMARY KEY,
+      type TEXT NOT NULL,
+      name TEXT,
+      capabilities TEXT,
+      metadata TEXT,
+      status TEXT DEFAULT 'disconnected',
+      last_seen INTEGER,
+      created_at INTEGER DEFAULT (strftime('%s', 'now')),
+      updated_at INTEGER DEFAULT (strftime('%s', 'now'))
+    )
+  `);
+  
+  db.exec(`
+    CREATE INDEX IF NOT EXISTS idx_devices_type 
+    ON devices(type)
+  `);
+  
+  db.exec(`
+    CREATE INDEX IF NOT EXISTS idx_devices_status 
+    ON devices(status)
   `);
 };
 

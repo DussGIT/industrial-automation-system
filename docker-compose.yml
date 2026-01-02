@@ -25,6 +25,7 @@ services:
     volumes:
       - ./backend:/app
       - /var/run/dbus:/var/run/dbus  # For Bluetooth
+      - /sys:/sys  # For GPIO access via MRAA
       - node-modules:/app/node_modules
     environment:
       - NODE_ENV=production
@@ -36,6 +37,8 @@ services:
     devices:
       - /dev/ttyUSB0:/dev/ttyUSB0  # Serial for Modbus/Radio
       - /dev/ttyUSB1:/dev/ttyUSB1
+      - /dev/mem:/dev/mem  # For GPIO memory access (MRAA)
+      - /dev/gpiomem:/dev/gpiomem  # For GPIO character device
     privileged: true  # For hardware access
     restart: unless-stopped
 

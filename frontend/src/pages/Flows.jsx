@@ -6,10 +6,14 @@ import api from '../services/api'
 
 const Flows = () => {
   const queryClient = useQueryClient()
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, error } = useQuery({
     queryKey: ['flows'],
     queryFn: api.getFlows
   })
+
+  console.log('Flows data:', data)
+  console.log('Flows loading:', isLoading)
+  console.log('Flows error:', error)
 
   const startMutation = useMutation({
     mutationFn: api.startFlow,
@@ -30,7 +34,13 @@ const Flows = () => {
     return <div className="p-8">Loading...</div>
   }
 
+  if (error) {
+    return <div className="p-8 text-red-500">Error loading flows: {error.message}</div>
+  }
+
   const flows = data?.flows || []
+  console.log('Flows array:', flows)
+  flows.forEach(flow => console.log('Flow:', flow.id, flow.name))
 
   return (
     <div className="p-8">

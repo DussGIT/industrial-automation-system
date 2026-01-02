@@ -137,23 +137,50 @@ class FlowRunner {
   }
 
   triggerConnectedNodes(sourceNodeId, data) {
-    // Find wires connected to this node
-    const connections = this.flowConfig.wires || [];
+    // Find edges connected to this node (ReactFlow format)
+    const edges = this.flowConfig.edges || this.flowConfig.wires || [];
     
-    for (const wire of connections) {
-      if (wire.source === sourceNodeId) {
-        const targetNode = this.nodes.get(wire.target);
+    for (const edge of edges) {
+      if (edge.source === sourceNodeId) {
+        const targetNode = this.nodes.get(edge.target);
         
         if (targetNode && targetNode.receive) {
           try {
-            targetNode.receive(data, wire.sourcePort, wire.targetPort);
+            targetNode.receive(data, edge.sourceHandle, edge.targetHandle);
           } catch (error) {
-            logger.error(`Error triggering node ${wire.target}:`, error);
-            this.handleNodeError(wire.target, error);
+            logger.error(`Error triggering node ${edge.target}:`, error);
+            this.handleNodeError(edge.target, error);
           }
         }
       }
     }
+  }
+
+  async triggerNode(nodeId) {
+    const node = this.nodes.get(nodeId);
+    
+    if (!node) {
+      throw new Error(`Node ${nodeId} not found in flow`);
+    }
+
+    // Create initial message for inject node
+    const message = {
+      payload: node.config?.payload || {},
+      topic: node.config?.topic || '',
+      _msgid: Date.now().toString()
+    };
+
+    // Trigger the node
+    if (node.trigger) {
+      await node.trigger(message);
+    } else {
+      // For nodes without trigger method, call receive directly
+      if (node.receive) {
+        node.receive(message);
+      }
+    }
+
+    return { success: true, message: 'Node triggered' };
   }
 
   logExecution(nodeId, status, input, output, error = null) {

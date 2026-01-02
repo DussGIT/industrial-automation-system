@@ -9,6 +9,8 @@ require('dotenv').config();
 const logger = require('./core/logger');
 const database = require('./core/database');
 const mqttClient = require('./core/mqtt');
+const { getXBeeManager } = require('./core/xbee-manager');
+const { getBluetoothManager } = require('./core/bluetooth-manager');
 const FlowEngine = require('./flow-engine');
 const apiRoutes = require('./api');
 const { initializeFlowsApi } = require('./api');
@@ -28,12 +30,17 @@ app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Rate limiting
-const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100 // limit each IP to 100 requests per windowMs
-});
-app.use('/api/', limiter);
+// Trust proxy
+app.set('trust proxy', 1);
+
+// Rate limiting disabled for internal system
+// const limiter = rateLimit({
+//   windowMs: 1 * 60 * 1000,
+//   max: 500,
+//   standardHeaders: true,
+//   legacyHeaders: false,
+// });
+// app.use('/api/', limiter);
 
 // API Routes
 app.use('/api', apiRoutes);
@@ -78,9 +85,40 @@ async function initialize() {
     await database.initialize();
     logger.info('Database initialized');
     
+    // Initialize GPIO Manager
+    const { getGPIOManager } = require('./core/gpio-manager');
+    const gpioManager = getGPIOManager();
+    await gpioManager.initialize();
+    logger.info('GPIO Manager initialized');
+    
+    // Initialize settings table
+    const { initializeSettingsTable } = require('./api/settings');
+    initializeSettingsTable();
+    
+    // Get settings from database
+    const db = database.getDb();
+    const xbeePortSetting = db.prepare('SELECT value FROM settings WHERE key = ?').get('xbee.port');
+    const xbeeBaudSetting = db.prepare('SELECT value FROM settings WHERE key = ?').get('xbee.baudRate');
+    const xbeePort = xbeePortSetting ? xbeePortSetting.value : 'COM8';
+    const xbeeBaudRate = xbeeBaudSetting ? parseInt(xbeeBaudSetting.value) : 9600;
+    
     // Initialize MQTT client
     await mqttClient.connect();
     logger.info('MQTT client connected');
+    
+    // Initialize XBee Manager
+    const xbeeManager = getXBeeManager();
+    const xbeeConnected = await xbeeManager.initialize(xbeePort, xbeeBaudRate);
+    if (xbeeConnected) {
+      logger.info('XBee Manager initialized');
+    } else {
+      logger.warn('XBee Manager started without serial connection');
+    }
+    
+    // Initialize Bluetooth Manager
+    const bluetoothManager = getBluetoothManager();
+    await bluetoothManager.initialize();
+    logger.info('Bluetooth Manager initialized');
     
     // Initialize Flow Engine
     flowEngine = new FlowEngine(io, mqttClient);
@@ -128,6 +166,26 @@ async function initialize() {
           socket.emit('flow:error', { error: error.message });
         }
       });
+    });
+    
+    // Broadcast XBee events to all connected clients
+    xbeeManager.on('data', (packet) => {
+      io.emit('xbee:data', {
+        timestamp: packet.timestamp || new Date().toISOString(),
+        address64: packet.address64,
+        address16: packet.address16,
+        data: packet.data,
+        payload: packet.payload,
+        rssi: packet.rssi
+      });
+    });
+    
+    xbeeManager.on('device-discovered', (device) => {
+      io.emit('xbee:device-discovered', device);
+    });
+    
+    xbeeManager.on('transmit-status', (status) => {
+      io.emit('xbee:transmit-status', status);
     });
     
     // Start server

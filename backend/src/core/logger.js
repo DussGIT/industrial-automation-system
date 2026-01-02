@@ -3,6 +3,51 @@ const path = require('path');
 
 const logLevel = process.env.LOG_LEVEL || 'info';
 
+// Custom transport for database logging
+class DatabaseTransport extends winston.Transport {
+  constructor(opts) {
+    super(opts);
+  }
+
+  log(info, callback) {
+    setImmediate(() => {
+      this.emit('logged', info);
+    });
+
+    // Only write to database if it's initialized
+    try {
+      const { getDb } = require('./database');
+      const db = getDb();
+      
+      if (db) {
+        const stmt = db.prepare(`
+          INSERT INTO system_logs (level, message, service, metadata)
+          VALUES (?, ?, ?, ?)
+        `);
+        
+        const metadata = { ...info };
+        delete metadata.level;
+        delete metadata.message;
+        delete metadata.timestamp;
+        delete metadata.service;
+        delete metadata.siteId;
+        
+        stmt.run(
+          info.level,
+          info.message,
+          info.service || 'ia-backend',
+          Object.keys(metadata).length > 0 ? JSON.stringify(metadata) : null
+        );
+      }
+    } catch (error) {
+      // Log to console for debugging but don't throw
+      console.error('DatabaseTransport error:', error.message);
+    }
+
+    callback();
+  }
+}
+
 const logger = winston.createLogger({
   level: logLevel,
   format: winston.format.combine(
@@ -33,6 +78,9 @@ const logger = winston.createLogger({
         )
       )
     }),
+    
+    // Write all logs to database
+    new DatabaseTransport({ level: logLevel }),
     
     // Write all logs to file
     new winston.transports.File({

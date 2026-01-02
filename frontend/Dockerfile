@@ -11,13 +11,13 @@ RUN npm ci
 # Copy source code
 COPY . .
 
-# Build the application
-RUN npm run build
+# Build the application using npx to avoid permission issues
+RUN npx vite build
 
 # Production stage
 FROM nginx:alpine
 
-# Copy built files to nginx
+# Copy built files to nginx (vite output directory is build)
 COPY --from=builder /app/build /usr/share/nginx/html
 
 # Copy nginx configuration

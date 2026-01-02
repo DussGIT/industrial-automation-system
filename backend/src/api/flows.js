@@ -85,6 +85,16 @@ router.post('/flows/:id/stop', async (req, res) => {
   }
 });
 
+// Trigger a specific node manually
+router.post('/flows/:id/trigger/:nodeId', async (req, res) => {
+  try {
+    const result = await flowEngine.triggerNode(req.params.id, req.params.nodeId);
+    res.json({ success: true, result });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 // Get flow status
 router.get('/flows/:id/status', (req, res) => {
   try {
