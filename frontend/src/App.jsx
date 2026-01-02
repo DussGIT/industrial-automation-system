@@ -15,22 +15,23 @@ import BluetoothMonitor from './pages/BluetoothMonitor'
 
 function App() {
   return (
-    <Layout>
-      <Routes>
-        <Route path="/" element={<Dashboard />} />
-        <Route path="/flows" element={<Flows />} />
-        <Route path="/flows/new" element={<FlowEditor />} />
-        <Route path="/flows/:id/edit" element={<FlowEditor />} />
-        <Route path="/analytics" element={<Analytics />} />
-        <Route path="/interfaces" element={<Interfaces />} />
-        <Route path="/audio" element={<AudioLibrary />} />
-        <Route path="/devices" element={<Devices />} />
-        <Route path="/xbee" element={<XBeeMonitor />} />
-        <Route path="/bluetooth" element={<BluetoothMonitor />} />
-        <Route path="/logs" element={<Logs />} />
-        <Route path="/settings" element={<Settings />} />
-      </Routes>
-    </Layout>
+    <Routes>
+      {/* Flow Editor routes without Layout */}
+      <Route path="/flows/new" element={<FlowEditor />} />
+      <Route path="/flows/:id/edit" element={<FlowEditor />} />
+      
+      {/* All other routes with Layout */}
+      <Route path="/" element={<Layout><Dashboard /></Layout>} />
+      <Route path="/flows" element={<Layout><Flows /></Layout>} />
+      <Route path="/analytics" element={<Layout><Analytics /></Layout>} />
+      <Route path="/interfaces" element={<Layout><Interfaces /></Layout>} />
+      <Route path="/audio" element={<Layout><AudioLibrary /></Layout>} />
+      <Route path="/devices" element={<Layout><Devices /></Layout>} />
+      <Route path="/xbee" element={<Layout><XBeeMonitor /></Layout>} />
+      <Route path="/bluetooth" element={<Layout><BluetoothMonitor /></Layout>} />
+      <Route path="/logs" element={<Layout><Logs /></Layout>} />
+      <Route path="/settings" element={<Layout><Settings /></Layout>} />
+    </Routes>
   )
 }
 

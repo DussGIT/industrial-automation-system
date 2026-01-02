@@ -79,11 +79,11 @@ const NodePalette = ({ onNodeDragStart }) => {
   }
 
   return (
-    <div className="w-64 bg-gray-800 border-r border-gray-700 flex flex-col h-full">
+    <div className="w-64 bg-gray-800 border-r border-gray-700 flex flex-col" style={{ height: '100vh' }}>
       <div className="p-4 flex-shrink-0">
         <h2 className="text-lg font-bold mb-4 text-white">Node Palette</h2>
       </div>
-      <div className="flex-1 overflow-y-auto px-4 pb-4">
+      <div className="flex-1 overflow-y-scroll px-4 pb-4" style={{ maxHeight: 'calc(100vh - 80px)' }}>
         <div>
         
         {nodeCategories.map((category) => (

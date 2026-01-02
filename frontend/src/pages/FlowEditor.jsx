@@ -9,7 +9,7 @@ import ReactFlow, {
   BackgroundVariant,
 } from 'reactflow'
 import 'reactflow/dist/style.css'
-import { Play, Square, Save, Upload, Trash2, CheckCircle, XCircle } from 'lucide-react'
+import { Play, Square, Save, Upload, Trash2, CheckCircle, XCircle, ArrowLeft } from 'lucide-react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import api from '../services/api'
@@ -312,7 +312,7 @@ const FlowEditor = () => {
   }
 
   return (
-    <div className="h-full flex flex-col bg-gray-900">
+    <div className="bg-gray-900" style={{ height: '100vh', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
       {/* Notification Banner */}
       {saveMessage && (
         <div className={`px-4 py-3 flex items-center gap-2 ${
@@ -330,6 +330,14 @@ const FlowEditor = () => {
       {/* Toolbar */}
       <div className="h-14 bg-gray-800 border-b border-gray-700 flex items-center justify-between px-4">
         <div className="flex items-center gap-4">
+          <button
+            onClick={() => navigate('/flows')}
+            className="px-3 py-1.5 text-gray-300 hover:text-white hover:bg-gray-700 rounded transition-colors flex items-center gap-2"
+            title="Back to Flows"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            Back
+          </button>
           <input
             type="text"
             value={flowName}
@@ -384,7 +392,7 @@ const FlowEditor = () => {
       </div>
 
       {/* Main Content */}
-      <div className="flex-1 flex">
+      <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
         <NodePalette />
         
         <div className="flex-1" ref={reactFlowWrapper}>
