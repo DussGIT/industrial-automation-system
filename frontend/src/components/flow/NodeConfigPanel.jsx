@@ -11,7 +11,7 @@ const NodeConfigPanel = ({ node, onClose, onSave }) => {
 
   // Load audio files if this is an audio-player node or radio-broadcast node
   useEffect(() => {
-    if (node?.data?.type === 'audio-player' || node?.data?.type === 'radio-broadcast') {
+    if (node?.data?.type === 'audio-player' || node?.data?.type === 'radio-broadcast' || node?.data?.type === 'radio-gpio-broadcast') {
       loadAudioFiles()
     }
   }, [node?.data?.type])
@@ -706,6 +706,107 @@ const NodeConfigPanel = ({ node, onClose, onSave }) => {
               />
               <p className="text-xs text-gray-400 mt-1">
                 Number of times to broadcast (1-10)
+              </p>
+            </div>
+          </>
+        )
+
+      case 'radio-gpio-broadcast':
+        return (
+          <>
+            <div>
+              <label className="block text-sm font-medium mb-2">Name</label>
+              <input
+                type="text"
+                value={config.name || ''}
+                onChange={(e) => setConfig({ ...config, name: e.target.value })}
+                className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500"
+                placeholder="Optional name"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-2">Audio File *</label>
+              {loadingAudio ? (
+                <div className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-gray-400">
+                  Loading audio files...
+                </div>
+              ) : audioFiles.length === 0 ? (
+                <div className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-gray-400">
+                  No audio files available. Upload files in the Audio Library.
+                </div>
+              ) : (
+                <select
+                  value={config.audioFileId || ''}
+                  onChange={(e) => setConfig({ ...config, audioFileId: parseInt(e.target.value) })}
+                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="">Select an audio file...</option>
+                  {audioFiles.map((file) => (
+                    <option key={file.id} value={file.id}>
+                      {file.name} ({file.format.toUpperCase()}, {(file.size / 1024).toFixed(0)}KB, {file.duration}s)
+                    </option>
+                  ))}
+                </select>
+              )}
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-2">Channel (0-15) *</label>
+              <input
+                type="number"
+                value={config.channel !== undefined ? config.channel : ''}
+                onChange={(e) => setConfig({ ...config, channel: parseInt(e.target.value) })}
+                className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500"
+                min="0"
+                max="15"
+                placeholder="0-15"
+              />
+              <p className="text-xs text-gray-400 mt-1">
+                Radio channel 0-15 (uses CS0-CS3 GPIO pins)
+              </p>
+            </div>
+            <div>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={config.waitForClear !== false}
+                  onChange={(e) => setConfig({ ...config, waitForClear: e.target.checked })}
+                  className="w-4 h-4 bg-gray-700 border-gray-600 rounded focus:ring-2 focus:ring-blue-500"
+                />
+                <span className="text-sm font-medium">Wait for Clear Channel</span>
+              </label>
+              <p className="text-xs text-gray-400 mt-1">
+                Wait for channel to be clear before transmitting
+              </p>
+            </div>
+            {config.waitForClear !== false && (
+              <div>
+                <label className="block text-sm font-medium mb-2">Clear Channel Timeout (ms)</label>
+                <input
+                  type="number"
+                  value={config.clearChannelTimeout || 5000}
+                  onChange={(e) => setConfig({ ...config, clearChannelTimeout: parseInt(e.target.value) })}
+                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  min="1000"
+                  max="30000"
+                  step="1000"
+                />
+                <p className="text-xs text-gray-400 mt-1">
+                  How long to wait for clear channel (1000-30000ms)
+                </p>
+              </div>
+            )}
+            <div>
+              <label className="block text-sm font-medium mb-2">Repeat</label>
+              <input
+                type="number"
+                value={config.repeat || 1}
+                onChange={(e) => setConfig({ ...config, repeat: parseInt(e.target.value) })}
+                className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500"
+                min="1"
+                max="10"
+              />
+              <p className="text-xs text-gray-400 mt-1">
+                Number of times to play the audio (1-10)
               </p>
             </div>
           </>

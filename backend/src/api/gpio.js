@@ -39,10 +39,59 @@ router.get('/status', (req, res) => {
     res.json({
       pins: gpio.pins,
       states,
-      exported: Array.from(gpio.exportedPins)
+      exported: Array.from(gpio.lines.keys())
     });
   } catch (error) {
     logger.error('GPIO status error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * Get detailed GPIO debug info
+ * GET /api/gpio/debug
+ */
+router.get('/debug', (req, res) => {
+  try {
+    const states = gpio.getPinStates();
+    const pinMapping = gpio.pinMap;
+    const namedPins = gpio.pins;
+    
+    // Build detailed info
+    const debugInfo = {
+      initialized: gpio.chip !== null,
+      chipNumber: gpio.chipNumber,
+      namedPins,
+      pinMapping,
+      currentStates: states,
+      exportedLines: Array.from(gpio.lines.keys()),
+      channelPins: {
+        CS0: {
+          physical: namedPins.CS0,
+          mapping: pinMapping[namedPins.CS0],
+          state: states[namedPins.CS0] || 0
+        },
+        CS1: {
+          physical: namedPins.CS1,
+          mapping: pinMapping[namedPins.CS1],
+          state: states[namedPins.CS1] || 0
+        },
+        CS2: {
+          physical: namedPins.CS2,
+          mapping: pinMapping[namedPins.CS2],
+          state: states[namedPins.CS2] || 0
+        },
+        CS3: {
+          physical: namedPins.CS3,
+          mapping: pinMapping[namedPins.CS3],
+          state: states[namedPins.CS3] || 0
+        }
+      }
+    };
+    
+    res.json(debugInfo);
+  } catch (error) {
+    logger.error('GPIO debug error:', error);
     res.status(500).json({ error: error.message });
   }
 });
@@ -171,13 +220,25 @@ router.post('/channel', async (req, res) => {
   try {
     let { channel } = req.body;
 
+    logger.info(`Channel API called with: ${JSON.stringify(req.body)}`);
+
     channel = parseInt(channel);
 
     if (isNaN(channel) || channel < 0 || channel > 15) {
+      logger.error(`Invalid channel value: ${channel}`);
       return res.status(400).json({ error: 'Channel must be 0-15' });
     }
 
-    await gpio.setChannel(channel);
+    logger.info(`Calling gpio.setChannel(${channel})...`);
+    const result = await gpio.setChannel(channel);
+
+    if (!result) {
+      logger.error(`gpio.setChannel(${channel}) returned false`);
+      return res.status(500).json({ 
+        success: false, 
+        error: `Failed to set channel ${channel}` 
+      });
+    }
 
     // Calculate CS pin states
     const cs0 = (channel & 0x01) ? 1 : 0;
@@ -185,10 +246,21 @@ router.post('/channel', async (req, res) => {
     const cs2 = (channel & 0x04) ? 1 : 0;
     const cs3 = (channel & 0x08) ? 1 : 0;
 
+    // Get actual pin states for verification
+    const states = gpio.getPinStates();
+
+    logger.info(`Channel ${channel} set successfully via API`);
+
     res.json({
       success: true,
       channel,
       csStates: { cs0, cs1, cs2, cs3 },
+      actualStates: {
+        CS0: states[gpio.pins.CS0],
+        CS1: states[gpio.pins.CS1],
+        CS2: states[gpio.pins.CS2],
+        CS3: states[gpio.pins.CS3]
+      },
       pins: {
         CS0: gpio.pins.CS0,
         CS1: gpio.pins.CS1,

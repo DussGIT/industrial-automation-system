@@ -6,8 +6,26 @@ const fs = require('fs');
 const { getDb } = require('../core/database');
 const logger = require('../core/logger');
 
+// Helper function to fix file paths (handles both old Windows paths and new Linux paths)
+function getActualFilePath(dbPath, filename) {
+  // If path starts with C:\ or similar Windows path, convert to /data/audio/filename
+  if (dbPath && (dbPath.includes(':\\') || dbPath.includes('C:'))) {
+    return `/data/audio/${filename}`;
+  }
+  // If path already starts with /data, use it as-is
+  if (dbPath && dbPath.startsWith('/data')) {
+    return dbPath;
+  }
+  // Otherwise, check if file exists at audioDir first, then fallback to /data/audio
+  const localPath = path.join(audioDir, filename);
+  if (fs.existsSync(localPath)) {
+    return localPath;
+  }
+  return `/data/audio/${filename}`;
+}
+
 // Ensure audio directory exists
-const audioDir = path.join(__dirname, '../../data/audio');
+const audioDir = process.env.AUDIO_DIR || path.join(__dirname, '../../data/audio');
 if (!fs.existsSync(audioDir)) {
   fs.mkdirSync(audioDir, { recursive: true });
 }
@@ -66,6 +84,9 @@ router.post('/audio/upload', upload.single('audio'), async (req, res) => {
     const stats = fs.statSync(req.file.path);
     const format = path.extname(req.file.originalname).slice(1);
     
+    // Store container-compatible path
+    const containerPath = `/data/audio/${req.file.filename}`;
+    
     // Insert into database
     const stmt = db.prepare(`
       INSERT INTO audio_files (name, description, filename, filepath, format, size)
@@ -76,7 +97,7 @@ router.post('/audio/upload', upload.single('audio'), async (req, res) => {
       name || req.file.originalname,
       description || null,
       req.file.filename,
-      req.file.path,
+      containerPath,
       format,
       stats.size
     );
@@ -105,11 +126,17 @@ router.get('/audio/:id/stream', (req, res) => {
     const stmt = db.prepare('SELECT * FROM audio_files WHERE id = ?');
     const file = stmt.get(req.params.id);
     
-    if (!file || !fs.existsSync(file.filepath)) {
+    if (!file) {
       return res.status(404).json({ success: false, error: 'File not found' });
     }
     
-    const stat = fs.statSync(file.filepath);
+    const filepath = getActualFilePath(file.filepath, file.filename);
+    
+    if (!fs.existsSync(filepath)) {
+      return res.status(404).json({ success: false, error: 'File not found' });
+    }
+    
+    const stat = fs.statSync(filepath);
     const fileSize = stat.size;
     const range = req.headers.range;
     
@@ -118,7 +145,7 @@ router.get('/audio/:id/stream', (req, res) => {
       const start = parseInt(parts[0], 10);
       const end = parts[1] ? parseInt(parts[1], 10) : fileSize - 1;
       const chunksize = (end - start) + 1;
-      const fileStream = fs.createReadStream(file.filepath, { start, end });
+      const fileStream = fs.createReadStream(filepath, { start, end });
       
       res.writeHead(206, {
         'Content-Range': `bytes ${start}-${end}/${fileSize}`,
@@ -134,7 +161,7 @@ router.get('/audio/:id/stream', (req, res) => {
         'Content-Type': `audio/${file.format}`
       });
       
-      fs.createReadStream(file.filepath).pipe(res);
+      fs.createReadStream(filepath).pipe(res);
     }
   } catch (error) {
     logger.error('Error streaming audio file:', error);
@@ -149,11 +176,17 @@ router.get('/audio/:id/download', (req, res) => {
     const stmt = db.prepare('SELECT * FROM audio_files WHERE id = ?');
     const file = stmt.get(req.params.id);
     
-    if (!file || !fs.existsSync(file.filepath)) {
+    if (!file) {
       return res.status(404).json({ success: false, error: 'File not found' });
     }
     
-    res.download(file.filepath, `${file.name}.${file.format}`);
+    const filepath = getActualFilePath(file.filepath, file.filename);
+    
+    if (!fs.existsSync(filepath)) {
+      return res.status(404).json({ success: false, error: 'File not found' });
+    }
+    
+    res.download(filepath, `${file.name}.${file.format}`);
   } catch (error) {
     logger.error('Error downloading audio file:', error);
     res.status(500).json({ success: false, error: error.message });
@@ -195,8 +228,9 @@ router.post('/audio/:id/delete', (req, res) => {
     }
     
     // Delete file from filesystem
-    if (fs.existsSync(file.filepath)) {
-      fs.unlinkSync(file.filepath);
+    const filepath = getActualFilePath(file.filepath, file.filename);
+    if (fs.existsSync(filepath)) {
+      fs.unlinkSync(filepath);
     }
     
     // Delete from database
@@ -212,4 +246,4 @@ router.post('/audio/:id/delete', (req, res) => {
   }
 });
 
-module.exports = { router };
+module.exports = { router, getActualFilePath };

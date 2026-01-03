@@ -7,23 +7,22 @@ const logger = require('../core/logger');
  */
 class GPIOManager {
   constructor() {
-    // UP Board HAT connector pin mapping using gpiochip4
-    // gpiochip4 = "Raspberry Pi compatible UP GPIO" with BCM numbering
-    // Physical pin to BCM GPIO mapping
+    // UP Board HAT connector pin mapping using gpiochip0
+    // Based on GPIO_STATUS.md verified mappings
     this.pinMap = {
-      // Radio Control Pins (from AW harness wiring)
-      13: { chip: 4, line: 27 },  // PTT - Push To Talk (Physical Pin 13 = BCM GPIO27)
-      15: { chip: 4, line: 22 },  // CS3 - Channel Select 3 (Physical Pin 15 = BCM GPIO22)
-      16: { chip: 4, line: 23 },  // CS2 - Channel Select 2 (Physical Pin 16 = BCM GPIO23)
-      18: { chip: 4, line: 24 },  // CS1 - Channel Select 1 (Physical Pin 18 = BCM GPIO24)
-      22: { chip: 4, line: 25 },  // CS0 - Channel Select 0 (Physical Pin 22 = BCM GPIO25)
-      32: { chip: 4, line: 12 },  // CLEAR CHANNEL (Physical Pin 32 = BCM GPIO12)
+      // Radio Control Pins (from GPIO_STATUS.md)
+      13: { chip: 0, line: 17 },  // PTT - Push To Talk (Physical Pin 13 = gpiochip0 line 17)
+      15: { chip: 0, line: 6 },   // CS3 - Channel Select 3 (Physical Pin 15 = gpiochip0 line 6)
+      16: { chip: 0, line: 19 },  // CS2 - Channel Select 2 (Physical Pin 16 = gpiochip0 line 19)
+      18: { chip: 0, line: 20 },  // CS1 - Channel Select 1 (Physical Pin 18 = gpiochip0 line 20)
+      22: { chip: 0, line: 21 },  // CS0 - Channel Select 0 (Physical Pin 22 = gpiochip0 line 21)
+      32: { chip: 0, line: 25 },  // CLEAR CHANNEL (Physical Pin 32 = gpiochip0 line 25)
       
-      // Additional GPIO pins
-      12: { chip: 4, line: 18 },  // GPIO 18 (Physical Pin 12 = BCM GPIO18)
-      19: { chip: 4, line: 10 },  // GPIO 10 (Physical Pin 19 = BCM GPIO10)
-      21: { chip: 4, line: 9 },   // GPIO 9 (Physical Pin 21 = BCM GPIO9)
-      33: { chip: 4, line: 13 },  // GPIO 13 (Physical Pin 33 = BCM GPIO13)
+      // Additional GPIO pins (need to verify these if used)
+      12: { chip: 0, line: 18 },  // GPIO 18 (Physical Pin 12)
+      19: { chip: 0, line: 10 },  // GPIO 10 (Physical Pin 19)
+      21: { chip: 0, line: 9 },   // GPIO 9 (Physical Pin 21)
+      33: { chip: 0, line: 13 },  // GPIO 13 (Physical Pin 33)
     };
 
     // Named pins for radio control
@@ -40,7 +39,7 @@ class GPIOManager {
       GPIO13: 33,       // Physical Pin 33
     };
 
-    this.chipNumber = 4; // gpiochip4 - Raspberry Pi compatible UP GPIO
+    this.chipNumber = 0; // gpiochip0 - Main GPIO controller for UP Board
     this.chip = null;
     this.lines = new Map();
     this.pinStates = new Map();
@@ -52,9 +51,9 @@ class GPIOManager {
   async initialize() {
     try {
       logger.info('Initializing GPIO Manager with libgpiod...');
-      logger.info(`Using gpiochip${this.chipNumber} - Raspberry Pi compatible UP GPIO`);
+      logger.info(`Using gpiochip${this.chipNumber} - UP Board Main GPIO Controller`);
       
-      // Open GPIO chip 4 (HAT connector)
+      // Open GPIO chip 0 (Main GPIO controller)
       this.chip = new Chip(this.chipNumber);
       
       logger.info('GPIO chip opened successfully');
@@ -190,12 +189,50 @@ class GPIOManager {
 
     logger.info(`Setting radio channel to ${channel}`);
 
-    // Set channel select pins (binary encoding)
-    await this.writePin(this.pins.CS0, (channel & 0x01) !== 0);
-    await this.writePin(this.pins.CS1, (channel & 0x02) !== 0);
-    await this.writePin(this.pins.CS2, (channel & 0x04) !== 0);
-    await this.writePin(this.pins.CS3, (channel & 0x08) !== 0);
+    // Calculate pin values for binary encoding
+    const cs0 = (channel & 0x01) !== 0 ? 1 : 0;
+    const cs1 = (channel & 0x02) !== 0 ? 1 : 0;
+    const cs2 = (channel & 0x04) !== 0 ? 1 : 0;
+    const cs3 = (channel & 0x08) !== 0 ? 1 : 0;
 
+    logger.info(`Channel ${channel} binary: CS3=${cs3} CS2=${cs2} CS1=${cs1} CS0=${cs0}`);
+    logger.info(`Physical pins: CS0=${this.pins.CS0}, CS1=${this.pins.CS1}, CS2=${this.pins.CS2}, CS3=${this.pins.CS3}`);
+
+    // Set channel select pins (binary encoding) with small delay between each
+    logger.info(`Setting CS0 (pin ${this.pins.CS0}) to ${cs0}`);
+    const result0 = await this.writePin(this.pins.CS0, cs0);
+    logger.info(`CS0 result: ${result0}`);
+    await this.sleep(10); // Small delay
+    
+    logger.info(`Setting CS1 (pin ${this.pins.CS1}) to ${cs1}`);
+    const result1 = await this.writePin(this.pins.CS1, cs1);
+    logger.info(`CS1 result: ${result1}`);
+    await this.sleep(10);
+    
+    logger.info(`Setting CS2 (pin ${this.pins.CS2}) to ${cs2}`);
+    const result2 = await this.writePin(this.pins.CS2, cs2);
+    logger.info(`CS2 result: ${result2}`);
+    await this.sleep(10);
+    
+    logger.info(`Setting CS3 (pin ${this.pins.CS3}) to ${cs3}`);
+    const result3 = await this.writePin(this.pins.CS3, cs3);
+    logger.info(`CS3 result: ${result3}`);
+
+    if (!result0 || !result1 || !result2 || !result3) {
+      logger.error(`Failed to set one or more channel select pins for channel ${channel}`);
+      logger.error(`Results: CS0=${result0}, CS1=${result1}, CS2=${result2}, CS3=${result3}`);
+      return false;
+    }
+
+    // Verify pin states
+    const states = this.getPinStates();
+    logger.info(`Verification - Pin states after setting channel ${channel}:`);
+    logger.info(`  CS0 (pin ${this.pins.CS0}): expected=${cs0}, actual=${states[this.pins.CS0]}`);
+    logger.info(`  CS1 (pin ${this.pins.CS1}): expected=${cs1}, actual=${states[this.pins.CS1]}`);
+    logger.info(`  CS2 (pin ${this.pins.CS2}): expected=${cs2}, actual=${states[this.pins.CS2]}`);
+    logger.info(`  CS3 (pin ${this.pins.CS3}): expected=${cs3}, actual=${states[this.pins.CS3]}`);
+
+    logger.info(`Channel ${channel} set successfully`);
     return true;
   }
 
@@ -209,6 +246,22 @@ class GPIOManager {
   }
 
   /**
+   * Activate Clear Channel
+   */
+  async activateClearChannel() {
+    logger.info('Activating Clear Channel');
+    return await this.writePin(this.pins.CLEAR_CHANNEL, 1);
+  }
+
+  /**
+   * Deactivate Clear Channel
+   */
+  async deactivateClearChannel() {
+    logger.info('Deactivating Clear Channel');
+    return await this.writePin(this.pins.CLEAR_CHANNEL, 0);
+  }
+
+  /**
    * Get current pin states
    * @returns {Object} Map of pin numbers to states
    */
@@ -218,6 +271,14 @@ class GPIOManager {
       states[pin] = value;
     }
     return states;
+  }
+
+  /**
+   * Sleep helper for delays
+   * @param {number} ms - Milliseconds to sleep
+   */
+  sleep(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
   }
 
   /**

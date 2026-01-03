@@ -9,17 +9,24 @@ class RadioChannelNode extends BaseNode {
   static type = 'radio-channel';
   constructor(config) {
     super(config);
-    this.channel = config.channel || 0;
+    
+    // The config.config property contains the actual node configuration
+    const nodeConfig = config.config || config;
+    this.channel = nodeConfig.channel !== undefined ? parseInt(nodeConfig.channel) : 0;
     this.gpio = getGPIOManager();
   }
 
   async receive(msg) {
     try {
-      // Get channel from message or config
-      let channel = msg.channel !== undefined ? msg.channel : msg.payload;
+      // Always use the configured channel as the default
+      let channel = this.channel;
       
-      if (channel === undefined || channel === null) {
-        channel = this.channel;
+      // Only allow override if msg.channel is explicitly set and is a valid channel (0-15)
+      if (msg.channel !== undefined) {
+        const msgChannel = parseInt(msg.channel);
+        if (!isNaN(msgChannel) && msgChannel >= 0 && msgChannel <= 15) {
+          channel = msgChannel;
+        }
       }
 
       // Convert to number
@@ -28,9 +35,15 @@ class RadioChannelNode extends BaseNode {
       if (isNaN(channel) || channel < 0 || channel > 15) {
         throw new Error(`Invalid channel: ${channel}. Must be 0-15`);
       }
+      
+      this.log(`Setting channel to ${channel} (configured: ${this.channel})`);
 
       // Set the channel
-      await this.gpio.setChannel(channel);
+      const result = await this.gpio.setChannel(channel);
+      
+      if (!result) {
+        throw new Error(`Failed to set channel ${channel} - GPIO write failed`);
+      }
 
       msg.payload = {
         channel,
@@ -38,10 +51,8 @@ class RadioChannelNode extends BaseNode {
       };
       
       this.send(msg);
-      this.updateStatus('green', 'dot', `Channel ${channel}`);
     } catch (error) {
-      this.error('Channel select failed', error);
-      this.updateStatus('red', 'dot', 'Error');
+      this.error(`Channel select failed: ${error.message}`, error);
     }
   }
 }

@@ -9,7 +9,7 @@ import ReactFlow, {
   BackgroundVariant,
 } from 'reactflow'
 import 'reactflow/dist/style.css'
-import { Play, Square, Save, Upload, Trash2, CheckCircle, XCircle, ArrowLeft } from 'lucide-react'
+import { Play, Square, Save, Upload, Trash2, CheckCircle, XCircle, ArrowLeft, Cpu } from 'lucide-react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import api from '../services/api'
@@ -18,6 +18,7 @@ import CustomNode from '../components/flow/CustomNode'
 import NodePalette from '../components/flow/NodePalette'
 import NodeConfigPanel from '../components/flow/NodeConfigPanel'
 import DebugPanel from '../components/flow/DebugPanel'
+import GPIOMonitor from '../components/GPIOMonitor'
 
 const nodeTypes = {
   custom: CustomNode,
@@ -39,6 +40,7 @@ const FlowEditor = () => {
   const [isRunning, setIsRunning] = useState(false)
   const [currentFlowId, setCurrentFlowId] = useState(flowId || 'new')
   const [saveMessage, setSaveMessage] = useState(null)
+  const [showGPIOMonitor, setShowGPIOMonitor] = useState(false)
 
   // Update currentFlowId when URL parameter changes
   useEffect(() => {
@@ -434,6 +436,22 @@ const FlowEditor = () => {
           </ReactFlow>
         </div>
       </div>
+
+      {/* GPIO Monitor Floating Button */}
+      {!showGPIOMonitor && (
+        <button
+          onClick={() => setShowGPIOMonitor(true)}
+          className="fixed bottom-24 right-4 p-4 bg-blue-600 hover:bg-blue-700 text-white rounded-full shadow-2xl z-40 transition-all hover:scale-110"
+          title="Open GPIO Monitor"
+        >
+          <Cpu className="w-6 h-6" />
+        </button>
+      )}
+
+      {/* GPIO Monitor Panel */}
+      {showGPIOMonitor && (
+        <GPIOMonitor onClose={() => setShowGPIOMonitor(false)} />
+      )}
 
       {/* Config Panel */}
       {selectedNode && (

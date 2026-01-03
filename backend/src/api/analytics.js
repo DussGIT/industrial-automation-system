@@ -131,6 +131,17 @@ router.get('/analytics/flows/stats', (req, res) => {
   try {
     const db = getDb();
     
+    // Check if flow_executions table exists
+    const tableCheck = db.prepare(`
+      SELECT name FROM sqlite_master 
+      WHERE type='table' AND name='flow_executions'
+    `).get();
+    
+    if (!tableCheck) {
+      // Table doesn't exist yet, return empty stats
+      return res.json({ success: true, stats: [] });
+    }
+    
     // Get execution stats per flow
     const stmt = db.prepare(`
       SELECT 

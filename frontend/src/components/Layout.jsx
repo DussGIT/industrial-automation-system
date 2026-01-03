@@ -1,15 +1,17 @@
-import React from 'react'
+import React, { useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
-import { LayoutDashboard, Workflow, BarChart3, Settings, Cpu, FileText, Volume2, Radio, Wifi, Bluetooth } from 'lucide-react'
+import { LayoutDashboard, Workflow, BarChart3, Settings, Cpu as CpuIcon, FileText, Volume2, Radio, Wifi, Bluetooth, Cpu } from 'lucide-react'
+import GPIOMonitor from './GPIOMonitor'
 
 const Layout = ({ children }) => {
   const location = useLocation()
+  const [showGPIOMonitor, setShowGPIOMonitor] = useState(false)
 
   const navItems = [
     { path: '/', icon: LayoutDashboard, label: 'Dashboard' },
     { path: '/flows', icon: Workflow, label: 'Flows' },
     { path: '/analytics', icon: BarChart3, label: 'Analytics' },
-    { path: '/interfaces', icon: Cpu, label: 'Interfaces' },
+    { path: '/interfaces', icon: CpuIcon, label: 'Interfaces' },
     { path: '/devices', icon: Radio, label: 'Devices' },
     { path: '/xbee', icon: Wifi, label: 'XBee Monitor' },
     { path: '/bluetooth', icon: Bluetooth, label: 'Bluetooth' },
@@ -20,6 +22,22 @@ const Layout = ({ children }) => {
 
   return (
     <div className="flex h-screen bg-dark-bg">
+      {/* GPIO Monitor Floating Button */}
+      {!showGPIOMonitor && (
+        <button
+          onClick={() => setShowGPIOMonitor(true)}
+          className="fixed bottom-24 right-4 p-4 bg-blue-600 hover:bg-blue-700 text-white rounded-full shadow-2xl z-40 transition-all hover:scale-110"
+          title="Open GPIO Monitor"
+        >
+          <Cpu className="w-6 h-6" />
+        </button>
+      )}
+
+      {/* GPIO Monitor Panel */}
+      {showGPIOMonitor && (
+        <GPIOMonitor onClose={() => setShowGPIOMonitor(false)} />
+      )}
+
       {/* Sidebar */}
       <aside className="w-64 bg-dark-surface border-r border-dark-border">
         <div className="p-4 border-b border-dark-border">

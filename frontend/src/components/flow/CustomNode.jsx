@@ -31,6 +31,7 @@ const nodeIcons = {
   http: Network,
   'audio-player': Volume2,
   'radio-broadcast': RadioTower,
+  'radio-gpio-broadcast': RadioTower,
 }
 
 const nodeColors = {
@@ -55,6 +56,7 @@ const nodeColors = {
   // Output nodes
   'audio-player': 'bg-purple-600',
   'radio-broadcast': 'bg-pink-600',
+  'radio-gpio-broadcast': 'bg-pink-600',
   
   // Other
   trigger: 'bg-indigo-500',
