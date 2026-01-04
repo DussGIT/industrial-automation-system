@@ -30,13 +30,14 @@ services:
     environment:
       - NODE_ENV=production
       - MQTT_BROKER=mqtt://mqtt:1883
-      - DATABASE_PATH=/data/automation.db
+      - DATABASE_PATH=/app/data/flows.db
       - LOG_LEVEL=info
     depends_on:
       - mqtt
     devices:
       - /dev/ttyUSB0:/dev/ttyUSB0  # Serial for Modbus/Radio
       - /dev/ttyUSB1:/dev/ttyUSB1
+      - /dev/ttyUSB5:/dev/ttyUSB5  # XBee adapter (FTDI)
       - /dev/mem:/dev/mem  # For GPIO memory access (MRAA)
       - /dev/gpiomem:/dev/gpiomem  # For GPIO character device
     privileged: true  # For hardware access

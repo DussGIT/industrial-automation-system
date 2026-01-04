@@ -265,6 +265,150 @@ const NodeConfigPanel = ({ node, onClose, onSave }) => {
           </>
         )
 
+      case 'awr-erm100-transmit':
+        return (
+          <>
+            <div>
+              <label className="block text-sm font-medium mb-2">Name</label>
+              <input
+                type="text"
+                value={config.name || ''}
+                onChange={(e) => setConfig({ ...config, name: e.target.value })}
+                className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500"
+                placeholder="Optional name"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-2">Channel (0-15)</label>
+              <input
+                type="number"
+                value={config.channel !== undefined ? config.channel : 0}
+                onChange={(e) => setConfig({ ...config, channel: parseInt(e.target.value) || 0 })}
+                className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500"
+                min="0"
+                max="15"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-2">Duration (ms)</label>
+              <input
+                type="number"
+                value={config.duration || 2000}
+                onChange={(e) => setConfig({ ...config, duration: parseInt(e.target.value) || 2000 })}
+                className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500"
+                min="100"
+                max="30000"
+              />
+            </div>
+            <div>
+              <label className="flex items-center">
+                <input
+                  type="checkbox"
+                  checked={config.checkClear !== false}
+                  onChange={(e) => setConfig({ ...config, checkClear: e.target.checked })}
+                  className="mr-2"
+                />
+                <span className="text-sm">Check Clear Channel</span>
+              </label>
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-2">Clear Timeout (ms)</label>
+              <input
+                type="number"
+                value={config.clearTimeout || 5000}
+                onChange={(e) => setConfig({ ...config, clearTimeout: parseInt(e.target.value) || 5000 })}
+                className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500"
+                min="1000"
+                max="30000"
+              />
+            </div>
+          </>
+        )
+
+      case 'awr-erm100-channel':
+        return (
+          <>
+            <div>
+              <label className="block text-sm font-medium mb-2">Name</label>
+              <input
+                type="text"
+                value={config.name || ''}
+                onChange={(e) => setConfig({ ...config, name: e.target.value })}
+                className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500"
+                placeholder="Optional name"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-2">Channel (0-15)</label>
+              <input
+                type="number"
+                value={config.channel !== undefined ? config.channel : 0}
+                onChange={(e) => setConfig({ ...config, channel: parseInt(e.target.value) || 0 })}
+                className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500"
+                min="0"
+                max="15"
+              />
+              <p className="text-xs text-gray-400 mt-1">
+                Set AWR ERM100 radio channel (0-15)
+              </p>
+            </div>
+          </>
+        )
+
+      case 'awr-erm100-broadcast':
+        return (
+          <>
+            <div>
+              <label className="block text-sm font-medium mb-2">Name</label>
+              <input
+                type="text"
+                value={config.name || ''}
+                onChange={(e) => setConfig({ ...config, name: e.target.value })}
+                className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500"
+                placeholder="Optional name"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-2">Channels (comma-separated)</label>
+              <input
+                type="text"
+                value={config.channels ? config.channels.join(',') : '0,1,2,3'}
+                onChange={(e) => {
+                  const channels = e.target.value.split(',').map(ch => parseInt(ch.trim())).filter(ch => !isNaN(ch) && ch >= 0 && ch <= 15)
+                  setConfig({ ...config, channels })
+                }}
+                className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500"
+                placeholder="0,1,2,3"
+              />
+              <p className="text-xs text-gray-400 mt-1">
+                Example: 0,1,2,3 or 5,7,9
+              </p>
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-2">Duration per Channel (ms)</label>
+              <input
+                type="number"
+                value={config.duration || 2000}
+                onChange={(e) => setConfig({ ...config, duration: parseInt(e.target.value) || 2000 })}
+                className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500"
+                min="100"
+                max="30000"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-2">Delay Between Channels (ms)</label>
+              <input
+                type="number"
+                value={config.delayBetween !== undefined ? config.delayBetween : 500}
+                onChange={(e) => setConfig({ ...config, delayBetween: parseInt(e.target.value) || 0 })}
+                className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500"
+                min="0"
+                max="5000"
+              />
+            </div>
+          </>
+        )
+
       case 'radio-channel':
         return (
           <>
@@ -319,6 +463,48 @@ const NodeConfigPanel = ({ node, onClose, onSave }) => {
                 <option value="msg">Complete message</option>
                 <option value="payload">msg.payload only</option>
               </select>
+            </div>
+          </>
+        )
+
+      case 'delay':
+        return (
+          <>
+            <div>
+              <label className="block text-sm font-medium mb-2">Delay Amount</label>
+              <input
+                type="number"
+                value={config.delayMs || 1000}
+                onChange={(e) => setConfig({ ...config, delayMs: parseInt(e.target.value) || 1000 })}
+                className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500"
+                min="1"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-2">Unit</label>
+              <select
+                value={config.delayUnit || 'milliseconds'}
+                onChange={(e) => setConfig({ ...config, delayUnit: e.target.value })}
+                className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="milliseconds">Milliseconds</option>
+                <option value="seconds">Seconds</option>
+                <option value="minutes">Minutes</option>
+              </select>
+            </div>
+            <div>
+              <label className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  checked={config.rateLimited || false}
+                  onChange={(e) => setConfig({ ...config, rateLimited: e.target.checked })}
+                  className="rounded"
+                />
+                <span className="text-sm">Rate Limited (drop if busy)</span>
+              </label>
+              <p className="text-xs text-gray-400 mt-1">
+                If enabled, drops new messages while a delay is in progress
+              </p>
             </div>
           </>
         )
@@ -816,17 +1002,54 @@ const NodeConfigPanel = ({ node, onClose, onSave }) => {
         return (
           <>
             <div>
-              <label className="block text-sm font-medium mb-2">Device Address (64-bit)</label>
+              <label className="block text-sm font-medium mb-2">Device</label>
+              {loadingDevices ? (
+                <div className="text-sm text-gray-400">Loading devices...</div>
+              ) : (
+                <select
+                  value={config.deviceAddress || ''}
+                  onChange={(e) => setConfig({ ...config, deviceAddress: e.target.value })}
+                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="">All Devices (Any XBee)</option>
+                  {devices.filter(d => d.type === 'xbee').map(device => (
+                    <option key={device.address64} value={device.address64}>
+                      {device.name || device.address64} ({device.address64})
+                    </option>
+                  ))}
+                </select>
+              )}
+              <p className="text-xs text-gray-400 mt-1">
+                Select specific device or leave as "All Devices"
+              </p>
+            </div>
+            
+            <div>
+              <label className="block text-sm font-medium mb-2">Payload Filter (Optional)</label>
               <input
                 type="text"
-                value={config.deviceAddress || ''}
-                onChange={(e) => setConfig({ ...config, deviceAddress: e.target.value })}
+                value={config.payloadFilter || ''}
+                onChange={(e) => setConfig({ ...config, payloadFilter: e.target.value })}
                 className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 font-mono"
-                placeholder="0013A20040ABCDEF"
+                placeholder="e.g., 40 or button or leave empty"
               />
               <p className="text-xs text-gray-400 mt-1">
-                XBee 64-bit address (leave empty to receive from all devices)
+                Match hex bytes (e.g., "40 03") or text. Leave empty to receive all payloads.
               </p>
+            </div>
+            
+            <div>
+              <label className="block text-sm font-medium mb-2">Filter Type</label>
+              <select
+                value={config.filterType || 'contains'}
+                onChange={(e) => setConfig({ ...config, filterType: e.target.value })}
+                className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="contains">Contains</option>
+                <option value="equals">Equals</option>
+                <option value="startsWith">Starts With</option>
+                <option value="regex">Regular Expression</option>
+              </select>
             </div>
           </>
         )

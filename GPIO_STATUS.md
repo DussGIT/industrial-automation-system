@@ -1,9 +1,18 @@
-# GPIO Implementation Status - December 25, 2025
+# GPIO Implementation Status - January 3, 2026
 
-## CURRENT STATUS: **BLOCKED - BIOS Configuration Required**
+## CURRENT STATUS: ✅ **WORKING - Using gpiochip4**
 
-### Problem
-Physical GPIO pins on UP board 40-pin header do NOT respond to software commands. Software works, but hardware is not connected.
+### Solution
+MUST use **gpiochip4** ("Raspberry Pi compatible UP GPIO") which routes through the UP Board CPLD/FPGA.
+DO NOT use gpiochip0 - it's the raw Intel GPIO controller that doesn't control the physical 40-pin header.
+
+## ⚠️ CRITICAL CONFIGURATION
+
+**UP Board GPIO Requirements:**
+- **MUST USE:** gpiochip4 ("Raspberry Pi compatible UP GPIO")
+- **DO NOT USE:** gpiochip0, gpiochip1, gpiochip2, gpiochip3 (Intel controllers - don't control physical pins)
+- **Pin Mapping:** Use BCM GPIO numbers on gpiochip4
+- **Example:** Physical Pin 13 (PTT) = gpiochip4 line 27 (BCM GPIO 27)
 
 ## What We've Accomplished
 
@@ -19,11 +28,11 @@ Physical GPIO pins on UP board 40-pin header do NOT respond to software commands
 - GPIO chips responding: gpiochip0 (78 lines), gpiochip1 (77 lines), gpiochip2-4
 - FPGA firmware loaded: v0.3.2 build 0x3
 
-### ❌ Hardware Problem
-**Physical pins DO NOT change voltage when software commands are issued**
-- Tested pins: 3, 5, 13, 18 with multimeter
-- Software reports success, but no electrical change on pins
-- **Root cause:** GPIO pins likely not enabled in BIOS
+### ✅ Hardware Working
+**Physical pins now respond correctly to software commands**
+- Root cause was using wrong GPIO chip (gpiochip0 instead of gpiochip4)
+- gpiochip4 routes through UP Board CPLD/FPGA to physical pins
+- All radio control pins tested and working: PTT, CS0-CS3, CLEAR
 
 ## Hardware Details
 
@@ -36,18 +45,23 @@ Physical GPIO pins on UP board 40-pin header do NOT respond to software commands
 
 **GPIO Chips Detected:**
 ```
-gpiochip0: 78 lines (base 512) - Main GPIO controller
-gpiochip1: 77 lines (base 590) - Secondary GPIO
-gpiochip2: 47 lines (base 667) - LPSS GPIO
-gpiochip3: 43 lines (base 714) - Additional GPIO
-gpiochip4: 4 lines (base 757) - Power/kernel reserved
+gpiochip0: 78 lines - Intel INT3452:00 (DO NOT USE - doesn't control physical pins)
+gpiochip1: 77 lines - Intel INT3452:01 (DO NOT USE)
+gpiochip2: 47 lines - Intel INT3452:02 (DO NOT USE)
+gpiochip3: 43 lines - Intel INT3452:03 (DO NOT USE)
+gpiochip4: 28 lines - "Raspberry Pi compatible UP GPIO" (✅ USE THIS - controls 40-pin header)
+gpiochip5: 4 lines - ftdi-cbus (FTDI adapter for XBee)
 ```
 
-## Verified Pin Mapping
+## Verified Pin Mapping (gpiochip4)
 
-Based on UP board documentation and testing:
-- **Physical Pin 13** (PTT) = gpiochip0 line 17 (sysfs GPIO 529)
-- **Physical Pin 15** (CS3) = gpiochip0 line 6
+✅ WORKING - Based on UP board testing with gpiochip4:
+- **Physical Pin 13** (PTT) = gpiochip4 line 27 (BCM GPIO 27)
+- **Physical Pin 15** (CS3) = gpiochip4 line 22 (BCM GPIO 22)
+- **Physical Pin 16** (CS2) = gpiochip4 line 23 (BCM GPIO 23)
+- **Physical Pin 18** (CS1) = gpiochip4 line 24 (BCM GPIO 24)
+- **Physical Pin 22** (CS0) = gpiochip4 line 25 (BCM GPIO 25)
+- **Physical Pin 32** (CLEAR) = gpiochip4 line 12 (BCM GPIO 12)
 - **Physical Pin 16** (CS2) = gpiochip0 line 19
 - **Physical Pin 18** (CS1) = gpiochip0 line 20
 - **Physical Pin 22** (CS0) = gpiochip0 line 21

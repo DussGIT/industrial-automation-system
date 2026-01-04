@@ -13,13 +13,15 @@ import {
   Play,
   Volume2,
   RadioTower,
-  Lightbulb
+  Lightbulb,
+  Timer
 } from 'lucide-react'
 
 const nodeIcons = {
   inject: Clock,
   debug: Bug,
   function: Code,
+  delay: Timer,
   mqtt: Wifi,
   'mqtt-in': Wifi,
   'mqtt-out': Wifi,
@@ -32,6 +34,9 @@ const nodeIcons = {
   'audio-player': Volume2,
   'radio-broadcast': RadioTower,
   'radio-gpio-broadcast': RadioTower,
+  'awr-erm100-transmit': RadioTower,
+  'awr-erm100-channel': Radio,
+  'awr-erm100-broadcast': Radio,
 }
 
 const nodeColors = {
@@ -39,6 +44,7 @@ const nodeColors = {
   inject: 'bg-blue-500',
   debug: 'bg-gray-500',
   function: 'bg-orange-500',
+  delay: 'bg-indigo-500',
   
   // Network nodes
   mqtt: 'bg-purple-500',
@@ -57,6 +63,11 @@ const nodeColors = {
   'audio-player': 'bg-purple-600',
   'radio-broadcast': 'bg-pink-600',
   'radio-gpio-broadcast': 'bg-pink-600',
+  
+  // AWR ERM100 nodes
+  'awr-erm100-transmit': 'bg-rose-600',
+  'awr-erm100-channel': 'bg-rose-500',
+  'awr-erm100-broadcast': 'bg-rose-700',
   
   // Other
   trigger: 'bg-indigo-500',

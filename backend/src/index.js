@@ -99,7 +99,7 @@ async function initialize() {
     const db = database.getDb();
     const xbeePortSetting = db.prepare('SELECT value FROM settings WHERE key = ?').get('xbee.port');
     const xbeeBaudSetting = db.prepare('SELECT value FROM settings WHERE key = ?').get('xbee.baudRate');
-    const xbeePort = xbeePortSetting ? xbeePortSetting.value : 'COM8';
+    const xbeePort = xbeePortSetting ? xbeePortSetting.value : '/dev/ttyUSB5';
     const xbeeBaudRate = xbeeBaudSetting ? parseInt(xbeeBaudSetting.value) : 9600;
     
     // Initialize MQTT client

@@ -15,7 +15,8 @@ import {
   Power,
   ChevronsRight,
   Hash,
-  Mic
+  Mic,
+  Timer
 } from 'lucide-react'
 
 const nodeCategories = [
@@ -25,6 +26,7 @@ const nodeCategories = [
       { type: 'inject', label: 'Inject', icon: Clock, description: 'Trigger flows on schedule or manually' },
       { type: 'debug', label: 'Debug', icon: Bug, description: 'Output messages to debug panel' },
       { type: 'function', label: 'Function', icon: Code, description: 'Execute custom JavaScript' },
+      { type: 'delay', label: 'Delay', icon: Timer, description: 'Delay message by specified time' },
     ]
   },
   {
@@ -58,6 +60,14 @@ const nodeCategories = [
       { type: 'gpio-out', label: 'GPIO Out', icon: Zap, description: 'Set GPIO pin high or low' },
       { type: 'radio-ptt', label: 'Radio PTT', icon: Mic, description: 'Control Push To Talk' },
       { type: 'radio-channel', label: 'Radio Channel', icon: Hash, description: 'Select radio channel (0-15)' },
+    ]
+  },
+  {
+    name: 'AWR ERM100',
+    nodes: [
+      { type: 'awr-erm100-transmit', label: 'ERM100 Transmit', icon: RadioTower, description: 'Transmit on AWR ERM100 radio' },
+      { type: 'awr-erm100-channel', label: 'ERM100 Channel', icon: Hash, description: 'Set AWR ERM100 channel (0-15)' },
+      { type: 'awr-erm100-broadcast', label: 'ERM100 Broadcast', icon: Radio, description: 'Multi-channel broadcast' },
     ]
   },
   {

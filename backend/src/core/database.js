@@ -7,8 +7,9 @@ let db = null;
 
 const initialize = () => {
   try {
-    // Use SQLite database - /data is mounted from host
-    const dbPath = '/data/flows.db';
+    // Use environment variable or default to /app/data/flows.db
+    // /app/data is mounted from host at ~/industrial-automation/backend/data/
+    const dbPath = process.env.DATABASE_PATH || '/app/data/flows.db';
     const dataDir = path.dirname(dbPath);
     
     // Create data directory if it doesn't exist
@@ -19,7 +20,10 @@ const initialize = () => {
     db = new Database(dbPath);
     db.pragma('journal_mode = WAL'); // Better performance
     
-    logger.info('SQLite database initialized successfully');
+    logger.info('SQLite database initialized successfully', {
+      path: dbPath,
+      size: fs.statSync(dbPath).size
+    });
     createTables();
     return db;
   } catch (error) {

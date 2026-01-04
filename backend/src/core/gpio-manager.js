@@ -7,22 +7,24 @@ const logger = require('../core/logger');
  */
 class GPIOManager {
   constructor() {
-    // UP Board HAT connector pin mapping using gpiochip0
-    // Based on GPIO_STATUS.md verified mappings
+    // ⚠️ CRITICAL: UP Board REQUIRES gpiochip4 - DO NOT change to gpiochip0!
+    // gpiochip0-3 are Intel GPIO controllers that DO NOT control the physical 40-pin header
+    // gpiochip4 is "Raspberry Pi compatible UP GPIO" routed through CPLD/FPGA
+    // Line numbers on gpiochip4 use BCM GPIO numbering
     this.pinMap = {
-      // Radio Control Pins (from GPIO_STATUS.md)
-      13: { chip: 0, line: 17 },  // PTT - Push To Talk (Physical Pin 13 = gpiochip0 line 17)
-      15: { chip: 0, line: 6 },   // CS3 - Channel Select 3 (Physical Pin 15 = gpiochip0 line 6)
-      16: { chip: 0, line: 19 },  // CS2 - Channel Select 2 (Physical Pin 16 = gpiochip0 line 19)
-      18: { chip: 0, line: 20 },  // CS1 - Channel Select 1 (Physical Pin 18 = gpiochip0 line 20)
-      22: { chip: 0, line: 21 },  // CS0 - Channel Select 0 (Physical Pin 22 = gpiochip0 line 21)
-      32: { chip: 0, line: 25 },  // CLEAR CHANNEL (Physical Pin 32 = gpiochip0 line 25)
+      // Radio Control Pins - using BCM GPIO numbers on gpiochip4
+      13: { chip: 4, line: 27 },  // PTT - Push To Talk (Physical Pin 13 = BCM GPIO 27)
+      15: { chip: 4, line: 22 },  // CS3 - Channel Select 3 (Physical Pin 15 = BCM GPIO 22)
+      16: { chip: 4, line: 23 },  // CS2 - Channel Select 2 (Physical Pin 16 = BCM GPIO 23)
+      18: { chip: 4, line: 24 },  // CS1 - Channel Select 1 (Physical Pin 18 = BCM GPIO 24)
+      22: { chip: 4, line: 25 },  // CS0 - Channel Select 0 (Physical Pin 22 = BCM GPIO 25)
+      32: { chip: 4, line: 12 },  // CLEAR CHANNEL (Physical Pin 32 = BCM GPIO 12)
       
-      // Additional GPIO pins (need to verify these if used)
-      12: { chip: 0, line: 18 },  // GPIO 18 (Physical Pin 12)
-      19: { chip: 0, line: 10 },  // GPIO 10 (Physical Pin 19)
-      21: { chip: 0, line: 9 },   // GPIO 9 (Physical Pin 21)
-      33: { chip: 0, line: 13 },  // GPIO 13 (Physical Pin 33)
+      // Additional GPIO pins using BCM numbering
+      12: { chip: 4, line: 18 },  // GPIO 18 (Physical Pin 12)
+      19: { chip: 4, line: 10 },  // GPIO 10 (Physical Pin 19)
+      21: { chip: 4, line: 9 },   // GPIO 9 (Physical Pin 21)
+      33: { chip: 4, line: 13 },  // GPIO 13 (Physical Pin 33)
     };
 
     // Named pins for radio control
@@ -39,7 +41,7 @@ class GPIOManager {
       GPIO13: 33,       // Physical Pin 33
     };
 
-    this.chipNumber = 0; // gpiochip0 - Main GPIO controller for UP Board
+    this.chipNumber = 4; // gpiochip4 - UP Board CPLD/FPGA controlled GPIO (Raspberry Pi compatible)
     this.chip = null;
     this.lines = new Map();
     this.pinStates = new Map();
@@ -51,7 +53,7 @@ class GPIOManager {
   async initialize() {
     try {
       logger.info('Initializing GPIO Manager with libgpiod...');
-      logger.info(`Using gpiochip${this.chipNumber} - UP Board Main GPIO Controller`);
+      logger.info(`Using gpiochip${this.chipNumber} - UP Board CPLD/FPGA GPIO (Raspberry Pi compatible)`);
       
       // Open GPIO chip 0 (Main GPIO controller)
       this.chip = new Chip(this.chipNumber);
@@ -82,6 +84,20 @@ class GPIOManager {
     const mapping = this.pinMap[physicalPin];
     if (!mapping) {
       throw new Error(`Physical pin ${physicalPin} not mapped`);
+    }
+
+    // CRITICAL: Release any existing line for this pin in opposite direction
+    // libgpiod doesn't allow the same hardware line to be requested multiple times
+    const oppositeKey = `${physicalPin}_${direction === 'out' ? 'in' : 'out'}`;
+    if (this.lines.has(oppositeKey)) {
+      const oppositeLine = this.lines.get(oppositeKey);
+      try {
+        oppositeLine.release();
+        this.lines.delete(oppositeKey);
+        logger.info(`Released ${direction === 'out' ? 'input' : 'output'} line for pin ${physicalPin} before opening as ${direction === 'out' ? 'output' : 'input'}`);
+      } catch (error) {
+        logger.warn(`Failed to release opposite direction line for pin ${physicalPin}:`, error.message);
+      }
     }
 
     try {
@@ -124,14 +140,21 @@ class GPIOManager {
       if (!this.lines.has(key)) {
         logger.info(`Opening GPIO line for pin ${physicalPin}...`);
         const line = this.chip.getLine(mapping.line);
-        line.requestOutputMode('gpio-manager'); // Request without initial value
+        // CRITICAL: requestOutputMode with initial value to ensure pin is driven
+        line.requestOutputMode('gpio-manager', val);
         this.lines.set(key, line);
-        logger.info(`GPIO line opened for pin ${physicalPin} (chip${mapping.chip} line ${mapping.line})`);
+        logger.info(`GPIO line opened for pin ${physicalPin} (chip${mapping.chip} line ${mapping.line}) with initial value ${val}`);
+      } else {
+        // Line already open, just set the value
+        const line = this.lines.get(key);
+        logger.info(`Line already open for pin ${physicalPin}, setting value to ${val}...`);
+        if (!line) {
+          logger.error(`Line object is null for pin ${physicalPin}!`);
+          throw new Error(`Line object is null for pin ${physicalPin}`);
+        }
+        line.setValue(val);
+        logger.info(`setValue() called successfully for pin ${physicalPin}`);
       }
-      
-      const line = this.lines.get(key);
-      logger.info(`Setting GPIO line to ${val}...`);
-      line.setValue(val);
       
       this.pinStates.set(physicalPin, val);
       logger.info(`GPIO pin ${physicalPin} (chip${mapping.chip} line ${mapping.line}) set to ${val}`);
@@ -163,18 +186,20 @@ class GPIOManager {
 
   /**
    * Activate PTT (Push To Talk)
+   * AWR ERM100 uses active-low PTT (0 = transmit, 1 = idle)
    */
   async activatePTT() {
     logger.info('Activating PTT');
-    return await this.writePin(this.pins.PTT, 1);
+    return await this.writePin(this.pins.PTT, 0);
   }
 
   /**
    * Deactivate PTT (Push To Talk)
+   * AWR ERM100 uses active-low PTT (0 = transmit, 1 = idle)
    */
   async deactivatePTT() {
     logger.info('Deactivating PTT');
-    return await this.writePin(this.pins.PTT, 0);
+    return await this.writePin(this.pins.PTT, 1);
   }
 
   /**

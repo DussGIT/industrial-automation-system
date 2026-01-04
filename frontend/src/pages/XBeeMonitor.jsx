@@ -6,10 +6,27 @@ export default function XBeeMonitor() {
   const [connected, setConnected] = useState(false);
   const [status, setStatus] = useState(null);
   const [devices, setDevices] = useState([]);
-  const [traffic, setTraffic] = useState([]);
+  const [traffic, setTraffic] = useState(() => {
+    // Load traffic from localStorage on mount
+    try {
+      const saved = localStorage.getItem('xbee-traffic');
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
   const [autoScroll, setAutoScroll] = useState(true);
   const trafficEndRef = useRef(null);
   const socketRef = useRef(null);
+
+  // Save traffic to localStorage whenever it changes
+  useEffect(() => {
+    try {
+      localStorage.setItem('xbee-traffic', JSON.stringify(traffic.slice(-100)));
+    } catch (error) {
+      console.error('Error saving traffic to localStorage:', error);
+    }
+  }, [traffic]);
 
   useEffect(() => {
     // Fetch initial status
@@ -38,7 +55,12 @@ export default function XBeeMonitor() {
           address16: packet?.address16 || 'Unknown',
           data: packet?.data || [],
           payload: packet?.payload || '',
-          rssi: packet?.rssi || null
+          payloadHex: packet?.payloadHex || null,
+          payloadBytes: packet?.payloadBytes || null,
+          payloadLength: packet?.payloadLength || 0,
+          isPrintable: packet?.isPrintable || false,
+          rssi: packet?.rssi || null,
+          options: packet?.options || null
         };
         
         setTraffic(prev => [...prev.slice(-99), entry]); // Keep last 100 entries
@@ -117,6 +139,7 @@ export default function XBeeMonitor() {
       });
     } catch (error) {
       console.error('Error starting discovery:', error);
+    localStorage.removeItem('xbee-traffic');
     }
   };
 
@@ -286,22 +309,37 @@ export default function XBeeMonitor() {
                     {entry.type === 'data' && (
                       <div className="flex-1">
                         <div className="text-blue-400 mb-1">
-                          ← Received from {entry.address64 || 'Unknown'}
+                          ← Received from {entry.address64 || 'Unknown'} ({entry.address16 || 'N/A'})
                         </div>
-                        <div className="text-green-400">
-                          Data: {formatData(entry.data)}
-                        </div>
-                        {entry.payload && (
-                          <div className="text-gray-400">
-                            Payload: {formatData(entry.payload)}
+                        
+                        {/* Show hex format */}
+                        {entry.payloadHex && (
+                          <div className="text-green-400 mb-1">
+                            HEX: {entry.payloadHex}
                           </div>
                         )}
-                        {entry.rssi !== null && entry.rssi !== undefined && (
-                          <div className="text-gray-500 text-xs">
-                            RSSI: {entry.rssi} dBm
+                        
+                        {/* Show byte array */}
+                        {entry.payloadBytes && entry.payloadBytes.length > 0 && (
+                          <div className="text-yellow-400 mb-1">
+                            Bytes: [{entry.payloadBytes.join(', ')}]
                           </div>
                         )}
+                        
+                        {/* Show ASCII if printable */}
+                        {entry.isPrintable && entry.payload && (
+                          <div className="text-cyan-400 mb-1">
+                            ASCII: "{entry.payload}"
+                          </div>
+                        )}
+                        
+                        <div className="text-gray-500 text-xs mt-1">
+                          Length: {entry.payloadLength} bytes
+                          {entry.options && ` | Options: ${entry.options}`}
+                          {entry.rssi !== null && entry.rssi !== undefined && ` | RSSI: ${entry.rssi} dBm`}
+                        </div>
                       </div>
+                    )}
                     )}
                     
                     {entry.type === 'device-discovered' && entry.device && (

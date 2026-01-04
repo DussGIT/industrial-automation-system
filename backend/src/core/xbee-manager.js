@@ -23,7 +23,7 @@ class XBeeManager extends EventEmitter {
   /**
    * Initialize XBee connection
    */
-  async initialize(port = 'COM5', baudRate = 9600) {
+  async initialize(port = '/dev/ttyUSB5', baudRate = 9600) {
     try {
       this.port = port;
       this.baudRate = baudRate;
@@ -226,11 +226,25 @@ class XBeeManager extends EventEmitter {
     const options = data[10];
     const payload = data.slice(11);
 
+    // Try to interpret payload in multiple formats
+    const payloadHex = payload.toString('hex');
+    const payloadAscii = payload.toString('ascii');
+    const payloadUtf8 = payload.toString('utf8');
+    
+    // Check if payload is printable ASCII
+    const isPrintable = payload.every(byte => byte >= 32 && byte <= 126);
+
     const packet = {
       address64,
       address16,
       options,
-      payload: payload.toString(),
+      payload: isPrintable ? payloadUtf8 : payloadHex,
+      payloadHex,
+      payloadAscii: isPrintable ? payloadAscii : null,
+      payloadUtf8: isPrintable ? payloadUtf8 : null,
+      payloadBytes: Array.from(payload),
+      payloadLength: payload.length,
+      isPrintable,
       data: payload,
       timestamp: new Date().toISOString()
     };
@@ -238,7 +252,13 @@ class XBeeManager extends EventEmitter {
     logger.info('Received XBee packet', {
       service: 'xbee',
       from: address64,
-      payload: packet.payload
+      address16,
+      payloadLength: payload.length,
+      payloadHex,
+      payloadAscii: isPrintable ? payloadAscii : '(binary data)',
+      payloadUtf8: isPrintable ? payloadUtf8 : '(binary data)',
+      payloadBytes: Array.from(payload),
+      options: `0x${options.toString(16).padStart(2, '0')}`
     });
 
     // Auto-discover device when we receive data from it
