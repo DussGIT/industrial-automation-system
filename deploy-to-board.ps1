@@ -32,10 +32,10 @@ function Test-SSHConnection {
     Write-Host "Testing SSH connection to $BoardUser@$BoardIP..." -ForegroundColor Yellow
     
     # Check if ssh is available
-    try {
-        $sshVersion = ssh -V 2>&1
+    $sshVersion = ssh -V 2>&1
+    if ($LASTEXITCODE -eq 0) {
         Write-Host "✓ SSH client found: $sshVersion" -ForegroundColor Green
-    } catch {
+    } else {
         Write-Host "SSH client not found!" -ForegroundColor Red
         Write-Host ""
         Write-Host "To install OpenSSH on Windows:" -ForegroundColor Yellow
@@ -144,33 +144,33 @@ function Deploy-Application {
     # Use scp to copy files
     scp -r -o StrictHostKeyChecking=no `
         docker-compose.yml `
-        backend `
-        frontend `
-        deployment `
-        "$BoardUser@$BoardIP`:~/industrial-automation/"
+            Write-Host "✓ Files copied successfully!" -ForegroundColor Green
     
-    if ($LASTEXITCODE -ne 0) {
-        Write-Host "✗ File copy failed!" -ForegroundColor Red
-        return
-    }
+            # Build and start containers
+            Write-Host "Building and starting containers..." -ForegroundColor Gray
+            $deployCommands = @'
+        cd ~/industrial-automation
+        docker compose build
+        docker compose up -d
+        docker compose ps
+        '@
     
-    Write-Host "✓ Files copied successfully!" -ForegroundColor Green
+            ssh "$BoardUser@$BoardIP" $deployCommands
     
-    # Build and start containers
-    Write-Host "Building and starting containers..." -ForegroundColor Gray
-    $deployCommands = @'
-cd ~/industrial-automation
-docker compose build
-docker compose up -d
-docker compose ps
-'@
-    
-    ssh "$BoardUser@$BoardIP" $deployCommands
-    
-    if ($LASTEXITCODE -eq 0) {
-        Write-Host ""
-        Write-Host "✓ Deployment successful!" -ForegroundColor Green
-        Write-Host ""
+            if ($LASTEXITCODE -eq 0) {
+                Write-Host ""
+                Write-Host "✓ Deployment successful!" -ForegroundColor Green
+                Write-Host ""
+                Write-Host "Application is now running on UP board!" -ForegroundColor Cyan
+                Write-Host "  Frontend: http://$BoardIP:5173" -ForegroundColor White
+                Write-Host "  Backend API: http://$BoardIP:3000/api" -ForegroundColor White
+                Write-Host ""
+                Write-Host "To view logs:" -ForegroundColor Yellow
+                Write-Host "  ssh $BoardUser@$BoardIP 'cd ~/industrial-automation && docker compose logs -f'" -ForegroundColor White
+            } else {
+                Write-Host "✗ Deployment failed!" -ForegroundColor Red
+            }
+        }
         Write-Host "Application is now running on UP board!" -ForegroundColor Cyan
         Write-Host "  Frontend: http://$BoardIP:5173" -ForegroundColor White
         Write-Host "  Backend API: http://$BoardIP:3000/api" -ForegroundColor White
