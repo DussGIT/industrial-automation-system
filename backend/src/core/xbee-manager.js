@@ -23,7 +23,7 @@ class XBeeManager extends EventEmitter {
   /**
    * Initialize XBee connection
    */
-  async initialize(port = '/dev/ttyUSB5', baudRate = 9600) {
+  async initialize(port = '/dev/ttyUSB0', baudRate = 9600) {
     try {
       this.port = port;
       this.baudRate = baudRate;
@@ -86,6 +86,13 @@ class XBeeManager extends EventEmitter {
    */
   handleData(data) {
     try {
+      // Log ANY incoming data
+      logger.info('XBee RAW data received', {
+        service: 'xbee',
+        bytes: data.length,
+        hex: data.toString('hex')
+      });
+      
       // Append new data to buffer
       this.buffer = Buffer.concat([this.buffer, data]);
       
@@ -234,6 +241,21 @@ class XBeeManager extends EventEmitter {
     // Check if payload is printable ASCII
     const isPrintable = payload.every(byte => byte >= 32 && byte <= 126);
 
+    // Get device info from database/cache
+    let deviceName = `XBee-${address64.slice(-8)}`;
+    let buttonName = null;
+    
+    const device = this.devices.get(address64);
+    logger.info(`[PACKET DEBUG] Device lookup for ${address64}: ${device ? 'FOUND' : 'NOT FOUND'}`, {
+      service: 'xbee',
+      deviceName: device?.name,
+      hasDevice: !!device
+    });
+    if (device && device.name) {
+      deviceName = device.name;
+      buttonName = device.name; // Use device name as button name
+    }
+
     const packet = {
       address64,
       address16,
@@ -246,7 +268,9 @@ class XBeeManager extends EventEmitter {
       payloadLength: payload.length,
       isPrintable,
       data: payload,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
+      deviceName,
+      buttonName
     };
 
     logger.info('Received XBee packet', {
@@ -488,16 +512,29 @@ class XBeeManager extends EventEmitter {
       const rows = stmt.all('xbee');
       
       for (const row of rows) {
+        // Check device_names table for custom name (takes precedence)
+        const customNameRow = db.prepare('SELECT name FROM device_names WHERE address = ? AND type = ?')
+          .get(row.address, 'xbee');
+        
+        const deviceName = customNameRow?.name || row.name || `XBee-${row.address.slice(-8)}`;
+        
+        logger.info(`[DB LOAD] address: ${row.address}, device_names: "${customNameRow?.name || 'none'}", devices.name: "${row.name}", final: "${deviceName}"`, {
+          service: 'xbee'
+        });
+        
         const device = {
           address64: row.address,
           address16: row.metadata ? JSON.parse(row.metadata).address16 : '',
-          name: row.name || `XBee-${row.address.slice(-8)}`,
-          nodeIdentifier: row.name || `XBee-${row.address.slice(-8)}`,
+          name: deviceName,
+          nodeIdentifier: deviceName,
           deviceType: row.metadata ? JSON.parse(row.metadata).deviceType : 'Unknown',
           status: row.status || 'Inactive',
           lastSeen: row.last_seen ? new Date(row.last_seen * 1000).toISOString() : null
         };
         this.devices.set(row.address, device);
+        logger.info(`Loaded XBee device from DB: ${row.address} with name: ${device.name}`, {
+          service: 'xbee'
+        });
       }
       
       logger.info(`Loaded ${rows.length} XBee devices from database`, {
@@ -507,6 +544,40 @@ class XBeeManager extends EventEmitter {
       logger.warn(`Failed to load XBee devices from database: ${error.message}`, {
         service: 'xbee',
         error: error.message
+      });
+    }
+  }
+
+  /**
+   * Update device name in memory (called when user renames device)
+   */
+  updateDeviceName(address, newName) {
+    const device = this.devices.get(address);
+    if (device) {
+      device.name = newName;
+      device.nodeIdentifier = newName;
+      logger.info(`Updated device name in memory: ${address} -> "${newName}"`, {
+        service: 'xbee'
+      });
+    } else {
+      logger.warn(`Cannot update device name - device not found: ${address}`, {
+        service: 'xbee'
+      });
+    }
+  }
+
+  /**
+   * Remove device from memory (called when user deletes device)
+   */
+  removeDevice(address) {
+    if (this.devices.has(address)) {
+      this.devices.delete(address);
+      logger.info(`Removed device from memory: ${address}`, {
+        service: 'xbee'
+      });
+    } else {
+      logger.warn(`Cannot remove device - not found in memory: ${address}`, {
+        service: 'xbee'
       });
     }
   }
@@ -602,6 +673,35 @@ class XBeeManager extends EventEmitter {
    */
   isReady() {
     return this.isConnected;
+  }
+
+  /**
+   * Remove a device from the network
+   */
+  async removeDevice(address) {
+    try {
+      // Remove from memory
+      const removed = this.devices.delete(address);
+      
+      if (removed) {
+        // Remove from database (devices table, not xbee_devices)
+        const db = getDb();
+        const deleteStmt = db.prepare('DELETE FROM devices WHERE address = ? AND type = ?');
+        deleteStmt.run(address, 'xbee');
+        
+        logger.info(`XBee device removed: ${address}`, { service: 'xbee' });
+        this.emit('device-removed', address);
+        return true;
+      }
+      
+      return false;
+    } catch (error) {
+      logger.error(`Error removing XBee device ${address}: ${error.message}`, {
+        service: 'xbee',
+        error: error.message
+      });
+      throw error;
+    }
   }
 
   /**

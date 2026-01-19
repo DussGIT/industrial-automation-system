@@ -33,11 +33,40 @@ const FlowEditor = () => {
   const queryClient = useQueryClient()
   const reactFlowWrapper = useRef(null)
   const [reactFlowInstance, setReactFlowInstance] = useState(null)
-  const [nodes, setNodes, onNodesChange] = useNodesState([])
-  const [edges, setEdges, onEdgesChange] = useEdgesState([])
+  const [nodes, setNodes, onNodesChangeRaw] = useNodesState([])
+  const [edges, setEdges, onEdgesChangeRaw] = useEdgesState([])
   const [selectedNode, setSelectedNode] = useState(null)
   const [flowName, setFlowName] = useState('Untitled Flow')
   const [isRunning, setIsRunning] = useState(false)
+  
+  // Wrap node/edge changes to prevent editing while flow is running
+  const onNodesChange = useCallback((changes) => {
+    if (isRunning) {
+      // Only allow selection changes when running, block position/dimension changes
+      const allowedChanges = changes.filter(change => 
+        change.type === 'select' || change.type === 'remove'
+      )
+      if (allowedChanges.length > 0) {
+        onNodesChangeRaw(allowedChanges)
+      }
+      return
+    }
+    onNodesChangeRaw(changes)
+  }, [isRunning, onNodesChangeRaw])
+
+  const onEdgesChange = useCallback((changes) => {
+    if (isRunning) {
+      // Only allow selection changes when running
+      const allowedChanges = changes.filter(change => 
+        change.type === 'select' || change.type === 'remove'
+      )
+      if (allowedChanges.length > 0) {
+        onEdgesChangeRaw(allowedChanges)
+      }
+      return
+    }
+    onEdgesChangeRaw(changes)
+  }, [isRunning, onEdgesChangeRaw])
   const [currentFlowId, setCurrentFlowId] = useState(flowId || 'new')
   const [saveMessage, setSaveMessage] = useState(null)
   const [showGPIOMonitor, setShowGPIOMonitor] = useState(false)
@@ -141,6 +170,7 @@ const FlowEditor = () => {
       }
 
       console.log('Saving flow definition:', flowDefinition)
+      console.log('[FlowEditor] Nodes being saved:', nodes.map(n => ({ id: n.id, type: n.data.type, config: n.data.config })))
 
       if (currentFlowId && currentFlowId !== 'new') {
         return await api.updateFlow(currentFlowId, flowDefinition)
@@ -205,17 +235,22 @@ const FlowEditor = () => {
   })
 
   const onConnect = useCallback(
-    (params) => setEdges((eds) => addEdge(params, eds)),
-    [setEdges]
+    (params) => {
+      if (isRunning) return // Prevent connections while running
+      setEdges((eds) => addEdge(params, eds))
+    },
+    [setEdges, isRunning]
   )
 
   const onDragOver = useCallback((event) => {
+    if (isRunning) return // Prevent drag while running
     event.preventDefault()
     event.dataTransfer.dropEffect = 'move'
-  }, [])
+  }, [isRunning])
 
   const onDrop = useCallback(
     (event) => {
+      if (isRunning) return // Prevent drop while running
       event.preventDefault()
 
       const type = event.dataTransfer.getData('application/reactflow')
@@ -329,6 +364,15 @@ const FlowEditor = () => {
         </div>
       )}
       
+      {/* Running Warning Banner */}
+      {isRunning && (
+        <div className="h-8 bg-amber-600/20 border-b border-amber-600/50 flex items-center justify-center">
+          <span className="text-amber-400 text-sm font-medium">
+            ⚠️ Flow is running - editing is disabled. Stop the flow to make changes.
+          </span>
+        </div>
+      )}
+      
       {/* Toolbar */}
       <div className="h-14 bg-gray-800 border-b border-gray-700 flex items-center justify-between px-4">
         <div className="flex items-center gap-4">
@@ -373,8 +417,9 @@ const FlowEditor = () => {
           </button>
           <button
             onClick={handleSave}
-            disabled={saveMutation.isPending}
+            disabled={saveMutation.isPending || isRunning}
             className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded transition-colors flex items-center gap-2 disabled:opacity-50"
+            title={isRunning ? 'Stop the flow before saving changes' : ''}
           >
             <Save className="w-4 h-4" />
             {saveMutation.isPending ? 'Saving...' : 'Save'}
@@ -459,6 +504,7 @@ const FlowEditor = () => {
           node={selectedNode}
           onClose={() => setSelectedNode(null)}
           onSave={handleConfigSave}
+          isRunning={isRunning}
         />
       )}
 

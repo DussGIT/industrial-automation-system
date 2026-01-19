@@ -148,6 +148,18 @@ router.put('/devices/:type/:address/name', async (req, res) => {
     
     logger.info('Device name updated', { type, address, name });
     
+    // Notify XBee manager to reload device name if it's an XBee device
+    if (type === 'xbee') {
+      try {
+        const xbeeManager = getXBeeManager();
+        if (xbeeManager) {
+          xbeeManager.updateDeviceName(address, name);
+        }
+      } catch (error) {
+        logger.warn('Failed to update XBee manager device name:', error);
+      }
+    }
+    
     res.json({ 
       success: true,
       device: { address, type, name }
@@ -171,15 +183,26 @@ router.delete('/devices/:type/:address', async (req, res) => {
     // Handle different device types
     switch (type) {
       case 'xbee':
-        // XBee devices can't be removed from the coordinator via API
-        // but we can remove the custom name
+        // Remove XBee device from both tables and memory
         const db = database.getDb();
         db.prepare('DELETE FROM device_names WHERE address = ? AND type = ?')
           .run(address, type);
+        db.prepare('DELETE FROM devices WHERE address = ? AND type = ?')
+          .run(address, type);
+        
+        // Remove from XBee manager memory
+        try {
+          const xbeeManager = getXBeeManager();
+          if (xbeeManager) {
+            xbeeManager.removeDevice(address);
+          }
+        } catch (error) {
+          logger.warn('Failed to remove device from XBee manager:', error);
+        }
         
         return res.json({ 
           success: true, 
-          message: 'XBee device removed from list. It will reappear when it sends data again.' 
+          message: 'XBee device removed. It will reappear when it sends data again.' 
         });
       
       case 'zigbee':
