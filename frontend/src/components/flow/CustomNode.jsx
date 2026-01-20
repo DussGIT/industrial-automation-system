@@ -86,7 +86,7 @@ const CustomNode = ({ data, selected, id }) => {
   }
   
   return (
-    <div className={`custom-node ${selected ? 'selected' : ''}`}>
+    <div className={`custom-node ${selected ? 'selected' : ''}`} title={data.tooltip || ''}>
       {/* Input handle - only show if node can receive inputs */}
       {!['inject', 'mqtt-in', 'zigbee-button', 'camera-event'].includes(data.type) && (
         <Handle
@@ -98,14 +98,14 @@ const CustomNode = ({ data, selected, id }) => {
       
       <div className={`flex items-center gap-2 px-3 py-2 rounded-lg shadow-lg border-2 ${
         selected ? 'border-blue-400' : 'border-gray-700'
-      } ${colorClass} text-white min-w-[150px] relative`}>
-        <Icon className="w-4 h-4 flex-shrink-0" />
+      } ${colorClass} text-white min-w-[160px] relative`}>
+        <Icon className="w-5 h-5 flex-shrink-0" />
         <div className="flex-1 min-w-0">
-          <div className="font-medium text-sm truncate">
+          <div className="font-semibold text-base truncate">
             {data.label || data.type}
           </div>
           {data.config?.name && (
-            <div className="text-xs opacity-75 truncate">
+            <div className="text-xs opacity-80 truncate mt-0.5">
               {data.config.name}
             </div>
           )}

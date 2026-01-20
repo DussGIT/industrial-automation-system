@@ -312,10 +312,15 @@ export default function XBeeMonitor() {
                           ← Received from {entry.address64 || 'Unknown'} ({entry.address16 || 'N/A'})
                         </div>
                         
-                        {/* Show hex format */}
+                        {/* Show hex format with Florlink message ID if present */}
                         {entry.payloadHex && (
                           <div className="text-green-400 mb-1">
                             HEX: {entry.payloadHex}
+                            {entry.payloadBytes && entry.payloadBytes.length > 0 && (
+                              <span className="ml-2 text-yellow-300">
+                                (MsgID: 0x{entry.payloadBytes[0].toString(16).padStart(2, '0').toUpperCase()})
+                              </span>
+                            )}
                           </div>
                         )}
                         
@@ -339,7 +344,6 @@ export default function XBeeMonitor() {
                           {entry.rssi !== null && entry.rssi !== undefined && ` | RSSI: ${entry.rssi} dBm`}
                         </div>
                       </div>
-                    )}
                     )}
                     
                     {entry.type === 'device-discovered' && entry.device && (

@@ -70,6 +70,16 @@ const FlowEditor = () => {
   const [currentFlowId, setCurrentFlowId] = useState(flowId || 'new')
   const [saveMessage, setSaveMessage] = useState(null)
   const [showGPIOMonitor, setShowGPIOMonitor] = useState(false)
+  
+  // Load devices for name lookups
+  const { data: devicesData } = useQuery({
+    queryKey: ['devices'],
+    queryFn: async () => {
+      const response = await api.get('/devices')
+      return response.devices || []
+    },
+  })
+  const devices = devicesData || []
 
   // Update currentFlowId when URL parameter changes
   useEffect(() => {
@@ -265,13 +275,19 @@ const FlowEditor = () => {
         y: event.clientY,
       })
 
+      // Generate more descriptive label for certain node types
+      let nodeLabel = label
+      if (type === 'xbee-in') {
+        nodeLabel = 'XBee In - Configure'
+      }
+      
       const newNode = {
         id: getId(),
         type: 'custom',
         position,
         data: { 
           type,
-          label,
+          label: nodeLabel,
           config: {},
           onTrigger: handleNodeTrigger,
         },
@@ -315,19 +331,73 @@ const FlowEditor = () => {
     setNodes((nds) =>
       nds.map((node) => {
         if (node.id === nodeId) {
+          // Generate descriptive label based on node type and config
+          let newLabel = config.name || node.data.label
+          let tooltip = ''
+          
+          if (node.data.type === 'xbee-in') {
+            // Ensure buttonAction has a value (default to 'trigger')
+            if (!config.buttonAction) {
+              config.buttonAction = 'trigger'
+            }
+            
+            // Debug logging
+            console.log('[FlowEditor] XBee node config:', config)
+            console.log('[FlowEditor] Devices array:', devices)
+            console.log('[FlowEditor] Looking for address:', config.deviceAddress)
+            
+            // Find device name if specific device selected
+            let deviceName = null
+            if (config.deviceAddress && devices && devices.length > 0) {
+              const device = devices.find(d => d.address === config.deviceAddress)
+              console.log('[FlowEditor] Found device:', device)
+              if (device && device.name) {
+                deviceName = device.name
+              }
+            }
+            
+            console.log('[FlowEditor] Final device name:', deviceName)
+            
+            // Build label
+            if (deviceName) {
+              // Show device name with button info
+              if (config.buttonNumber) {
+                newLabel = `${deviceName} Btn${config.buttonNumber}`
+              } else {
+                newLabel = `${deviceName} Any`
+              }
+            } else {
+              // No device name - show simple label
+              if (config.buttonNumber) {
+                newLabel = `XBee Button ${config.buttonNumber}`
+              } else {
+                newLabel = `XBee Any Button`
+              }
+            }
+            
+            // Build tooltip with full details
+            const tooltipParts = []
+            tooltipParts.push(`XBee Input Node`)
+            tooltipParts.push(`Device: ${deviceName || 'Any'}`)
+            tooltipParts.push(`Button: ${config.buttonNumber || 'Any'}`)
+            tooltipParts.push(`Action: ${config.buttonAction === 'cancel' ? 'Cancel Event' : config.buttonAction === 'trigger' ? 'Button Press' : 'Any Action'}`)
+            tooltip = tooltipParts.join('\n')
+          }
+          
           return {
             ...node,
             data: {
               ...node.data,
               config,
-              label: config.name || node.data.label,
+              label: newLabel,
+              tooltip: tooltip || node.data.tooltip,
             },
           }
         }
         return node
       })
     )
-  }, [setNodes])
+  }, [setNodes, devices])
 
   const handleSave = () => {
     saveMutation.mutate()

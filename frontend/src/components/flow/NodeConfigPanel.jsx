@@ -1170,8 +1170,8 @@ const NodeConfigPanel = ({ node, onClose, onSave, isRunning = false }) => {
                 >
                   <option value="">All Devices</option>
                   {devices.filter(d => d.type === 'xbee').map(device => (
-                    <option key={device.address64} value={device.address64}>
-                      {device.name || device.address64}
+                    <option key={device.address} value={device.address}>
+                      {device.name || device.address}
                     </option>
                   ))}
                 </select>
