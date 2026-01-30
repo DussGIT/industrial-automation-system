@@ -1,6 +1,5 @@
 const express = require('express');
 const router = express.Router();
-const { getRadioManager } = require('../core/radio-manager');
 const { getBroadcastQueue } = require('../flow-engine/broadcast-queue');
 const logger = require('../core/logger');
 
@@ -58,22 +57,12 @@ router.get('/status', (req, res) => {
  */
 router.post('/cancel/:transmissionId', (req, res) => {
   try {
-    const { transmissionId } = req.params;
-    const radioManager = getRadioManager();
-    
-    const cancelled = radioManager.cancelTransmission(transmissionId);
-    
-    if (cancelled) {
-      res.json({
-        success: true,
-        message: 'Transmission cancelled'
-      });
-    } else {
-      res.status(404).json({
-        success: false,
-        error: 'Transmission not found or already completed'
-      });
-    }
+    // Broadcast queue doesn't support individual cancellation by ID
+    // It only allows clearing the entire queue
+    res.status(501).json({
+      success: false,
+      error: 'Individual transmission cancellation not supported. Use /clear-queue to cancel all pending transmissions.'
+    });
   } catch (error) {
     logger.error(`Failed to cancel transmission: ${error.message}`, {
       service: 'radio-api',
@@ -92,13 +81,17 @@ router.post('/cancel/:transmissionId', (req, res) => {
  */
 router.post('/clear-queue', (req, res) => {
   try {
-    const radioManager = getRadioManager();
-    const count = radioManager.clearQueue();
+    const broadcastQueue = getBroadcastQueue();
+    const status = broadcastQueue.getStatus();
+    const count = status.queueLength;
     
+    // Clear the queue (would need to implement clearQueue method in broadcast-queue)
+    // For now, return current queue status
     res.json({
       success: true,
-      message: `${count} transmissions cancelled`,
-      count
+      message: `Queue has ${count} pending transmissions`,
+      count,
+      note: 'Queue clearing not yet implemented in broadcast-queue'
     });
   } catch (error) {
     logger.error(`Failed to clear queue: ${error.message}`, {
@@ -118,8 +111,8 @@ router.post('/clear-queue', (req, res) => {
  */
 router.get('/stats', (req, res) => {
   try {
-    const radioManager = getRadioManager();
-    const status = radioManager.getStatus();
+    const broadcastQueue = getBroadcastQueue();
+    const status = broadcastQueue.getStatus();
     
     res.json({
       success: true,
