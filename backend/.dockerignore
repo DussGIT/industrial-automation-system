@@ -1,0 +1,15 @@
+node_modules
+npm-debug.log
+.env
+.git
+.gitignore
+*.md
+README.md
+
+# Never copy data or logs into the image
+data/
+logs/
+src/data/
+*.db
+*.db-shm
+*.db-wal

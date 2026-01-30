@@ -1,5 +1,3 @@
-﻿const db = require('better-sqlite3')('/app/data/ia.db');
-const result = db.prepare('UPDATE settings SET value = ? WHERE key = ?').run('/dev/ttyUSB5', 'xbee.port');
-console.log('Updated XBee port:', result.changes, 'rows affected');
-const check = db.prepare('SELECT value FROM settings WHERE key = ?').get('xbee.port');
-console.log('Current XBee port:', check.value);
+﻿const db = require('better-sqlite3')('/data/flows.db');
+db.prepare('INSERT OR REPLACE INTO settings (key, value, type, category, label, description) VALUES (?, ?, ?, ?, ?, ?)').run('xbee.port', '/dev/ttyUSB0', 'string', 'hardware', 'XBee Port', 'XBee serial port');
+console.log('XBee port updated to /dev/ttyUSB0');

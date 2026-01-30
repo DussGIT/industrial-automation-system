@@ -8,7 +8,30 @@ RUN apt-get update && apt-get install -y \
     build-essential \
     libgpiod-dev \
     gpiod \
+    alsa-utils \
+    pulseaudio-utils \
+    wget \
     && rm -rf /var/lib/apt/lists/*
+
+# Install Piper TTS
+RUN wget -O /tmp/piper.tar.gz https://github.com/rhasspy/piper/releases/download/v1.2.0/piper_amd64.tar.gz \
+    && mkdir -p /opt/piper \
+    && tar -xzf /tmp/piper.tar.gz -C /opt/piper \
+    && ln -s /opt/piper/piper/piper /usr/local/bin/piper \
+    && chmod +x /opt/piper/piper/piper \
+    && rm -rf /tmp/piper.tar.gz
+
+# Download default voice model
+RUN mkdir -p /usr/local/share/piper/models \
+    && cd /usr/local/share/piper/models \
+    && wget https://github.com/rhasspy/piper/releases/download/v0.0.2/voice-en-us-lessac-medium.tar.gz \
+    && tar -xzf voice-en-us-lessac-medium.tar.gz \
+    && rm voice-en-us-lessac-medium.tar.gz \
+    && mv en-us-lessac-medium.onnx en_US-lessac-medium.onnx \
+    && mv en-us-lessac-medium.onnx.json en_US-lessac-medium.onnx.json
+
+# Set library path for piper
+ENV LD_LIBRARY_PATH=/opt/piper/piper:$LD_LIBRARY_PATH
 
 # Copy package files
 COPY package*.json ./

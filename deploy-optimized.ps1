@@ -14,9 +14,9 @@ ssh "$BoardUser@$BoardIP" "mkdir -p ~/industrial-automation"
 # Step 2: Copy only essential source files (exclude node_modules, build artifacts)
 Write-Host "[2/4] Copying source files (excluding node_modules)..." -ForegroundColor Yellow
 
-# Copy backend source (excluding node_modules)
+# Copy backend source (excluding node_modules and data)
 Write-Host "  - Backend source files..." -ForegroundColor Gray
-scp -r --exclude='node_modules' --exclude='logs' --exclude='*.log' `
+scp -r --exclude='node_modules' --exclude='logs' --exclude='*.log' --exclude='data' `
     backend/src backend/package*.json backend/Dockerfile `
     "$BoardUser@$BoardIP`:~/industrial-automation/backend/"
 
@@ -44,9 +44,10 @@ Write-Host "[3/4] Building containers on UP board..." -ForegroundColor Yellow
 $buildCmd = @"
 cd ~/industrial-automation
 echo "Stopping existing containers..."
-docker-compose -f docker-compose.local.yml down 2>/dev/null || true
+docker-compose -f docker-compose.local.yml stop 2>/dev/null || true
 echo "Building containers..."
 docker-compose -f docker-compose.local.yml build
+echo "Data directory preserved: ~/industrial-automation/data"
 "@
 
 ssh "$BoardUser@$BoardIP" $buildCmd

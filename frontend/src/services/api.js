@@ -105,8 +105,8 @@ const api = {
   },
 
   // Generic methods for custom requests
-  post: async (url, body) => {
-    const { data } = await apiClient.post(url, body)
+  post: async (url, body, config) => {
+    const { data } = await apiClient.post(url, body, config)
     return data
   },
 

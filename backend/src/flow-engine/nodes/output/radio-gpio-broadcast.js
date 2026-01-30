@@ -134,7 +134,10 @@ class RadioGPIOBroadcastNode extends BaseNode {
       this.log(`Generating TTS: "${text.substring(0, 50)}..." with voice ${voice}`, 'info');
       
       // Generate TTS audio
-      const command = `echo "${text.replace(/"/g, '\\"')}" | ${piperPath} --model ${modelFile} --output_file ${tempFilepath} --length_scale ${speed}`;
+      // Note: Piper's length_scale is inverse - higher = slower, lower = faster
+      // So we invert the speed: if user wants 2x speed, we use 0.5 length_scale
+      const lengthScale = speed > 0 ? (1.0 / parseFloat(speed)) : 1.0;
+      const command = `echo "${text.replace(/"/g, '\\"')}" | ${piperPath} --model ${modelFile} --output_file ${tempFilepath} --length_scale ${lengthScale}`;
       await execPromise(command);
       
       this.log(`TTS generated: ${tempFilename}`, 'info');
@@ -174,8 +177,8 @@ class RadioGPIOBroadcastNode extends BaseNode {
    */
   async playAudio(filepath, repeatCount = 1) {
     try {
-      // Use device 3 (working HDMI audio output)
-      const audioDevice = process.env.AUDIO_DEVICE || 'plughw:CARD=PCH,DEV=3';
+      // Use USB Audio Device (Card 1) - plughw handles format conversion
+      const audioDevice = process.env.AUDIO_DEVICE || 'plughw:1,0';
       const singleDuration = this.getAudioDuration(filepath);
       
       for (let i = 0; i < repeatCount; i++) {
@@ -211,7 +214,14 @@ class RadioGPIOBroadcastNode extends BaseNode {
     this.log(`Adding broadcast to global queue (current queue: ${queueLength})`, 'info');
     
     try {
-      await this.broadcastQueue.enqueue(() => this.processBroadcast(msg));
+      // Pass metadata for queue tracking
+      const metadata = {
+        nodeName: this.name || 'Radio Broadcast',
+        channel: this.channel,
+        audioSource: this.audioSource
+      };
+      
+      await this.broadcastQueue.enqueue(() => this.processBroadcast(msg), metadata);
       this.log('Broadcast completed', 'info');
     } catch (error) {
       this.log(`Broadcast failed: ${error.message}`, 'error');

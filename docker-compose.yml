@@ -23,14 +23,15 @@ services:
       - "3000:3000"
       - "3001:3001"  # WebSocket
     volumes:
-      - ./backend:/app
+      - ~/industrial-automation/data:/data  # Persistent data directory
+      - ~/industrial-automation/backend/logs:/logs  # Log directory
       - /var/run/dbus:/var/run/dbus  # For Bluetooth
       - /sys:/sys  # For GPIO access via MRAA
-      - node-modules:/app/node_modules
     environment:
       - NODE_ENV=production
       - MQTT_BROKER=mqtt://mqtt:1883
-      - DATABASE_PATH=/app/data/flows.db
+      - DATABASE_PATH=/data/flows.db
+      - AUDIO_DIR=/data/audio
       - LOG_LEVEL=info
     depends_on:
       - mqtt
@@ -40,6 +41,7 @@ services:
       - /dev/ttyUSB5:/dev/ttyUSB5  # XBee adapter (FTDI)
       - /dev/mem:/dev/mem  # For GPIO memory access (MRAA)
       - /dev/gpiomem:/dev/gpiomem  # For GPIO character device
+      - /dev/snd:/dev/snd  # Audio devices
     privileged: true  # For hardware access
     restart: unless-stopped
 
@@ -51,61 +53,59 @@ services:
     ports:
       - "80:80"
       - "443:443"
-    volumes:
-      - ./frontend/build:/usr/share/nginx/html:ro
-      - ./deployment/docker/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
     depends_on:
       - backend
     restart: unless-stopped
 
   # Central Server Services (runs on central server, not UP Board)
-  postgres:
-    image: timescale/timescaledb:latest-pg15
-    container_name: ia-postgres
-    ports:
-      - "5432:5432"
-    environment:
-      - POSTGRES_DB=industrial_automation
-      - POSTGRES_USER=ia_user
-      - POSTGRES_PASSWORD=changeme
-    volumes:
-      - postgres-data:/var/lib/postgresql/data
-      - ./central-server/database/init.sql:/docker-entrypoint-initdb.d/init.sql
-    restart: unless-stopped
-    profiles:
-      - central
+  # Commented out for UP Board deployment
+  # postgres:
+  #   image: timescale/timescaledb:latest-pg15
+  #   container_name: ia-postgres
+  #   ports:
+  #     - "5432:5432"
+  #   environment:
+  #     - POSTGRES_DB=industrial_automation
+  #     - POSTGRES_USER=ia_user
+  #     - POSTGRES_PASSWORD=changeme
+  #   volumes:
+  #     - postgres-data:/var/lib/postgresql/data
+  #     - ./central-server/database/init.sql:/docker-entrypoint-initdb.d/init.sql
+  #   restart: unless-stopped
+  #   profiles:
+  #     - central
 
-  grafana:
-    image: grafana/grafana:latest
-    container_name: ia-grafana
-    ports:
-      - "3002:3000"
-    environment:
-      - GF_SECURITY_ADMIN_PASSWORD=changeme
-      - GF_INSTALL_PLUGINS=
-    volumes:
-      - grafana-data:/var/lib/grafana
-      - ./central-server/dashboards:/etc/grafana/provisioning/dashboards
-    depends_on:
-      - postgres
-    restart: unless-stopped
-    profiles:
-      - central
+  # grafana:
+  #   image: grafana/grafana:latest
+  #   container_name: ia-grafana
+  #   ports:
+  #     - "3002:3000"
+  #   environment:
+  #     - GF_SECURITY_ADMIN_PASSWORD=changeme
+  #     - GF_INSTALL_PLUGINS=
+  #   volumes:
+  #     - grafana-data:/var/lib/grafana
+  #     - ./central-server/dashboards:/etc/grafana/provisioning/dashboards
+  #   depends_on:
+  #     - postgres
+  #   restart: unless-stopped
+  #   profiles:
+  #     - central
 
-  aggregator:
-    build:
-      context: ./central-server/aggregator
-      dockerfile: Dockerfile
-    container_name: ia-aggregator
-    environment:
-      - DATABASE_URL=postgresql://ia_user:changeme@postgres:5432/industrial_automation
-      - MQTT_BROKER=mqtt://mqtt:1883
-    depends_on:
-      - postgres
-      - mqtt
-    restart: unless-stopped
-    profiles:
-      - central
+  # aggregator:
+  #   build:
+  #     context: ./central-server/aggregator
+  #     dockerfile: Dockerfile
+  #   container_name: ia-aggregator
+  #   environment:
+  #     - DATABASE_URL=postgresql://ia_user:changeme@postgres:5432/industrial_automation
+  #     - MQTT_BROKER=mqtt://mqtt:1883
+  #   depends_on:
+  #     - postgres
+  #     - mqtt
+  #   restart: unless-stopped
+  #   profiles:
+  #     - central
 
 volumes:
   mqtt-data:

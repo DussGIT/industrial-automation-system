@@ -7,24 +7,25 @@ const logger = require('../core/logger');
  */
 class GPIOManager {
   constructor() {
-    // ⚠️ CRITICAL: UP Board REQUIRES gpiochip4 - DO NOT change to gpiochip0!
+    // ⚠️ CRITICAL: UP Board REQUIRES gpiochip5 (after pinctrl-upboard module loads) - DO NOT change to gpiochip0!
     // gpiochip0-3 are Intel GPIO controllers that DO NOT control the physical 40-pin header
-    // gpiochip4 is "Raspberry Pi compatible UP GPIO" routed through CPLD/FPGA
-    // Line numbers on gpiochip4 use BCM GPIO numbering
+    // gpiochip4 is FTDI (XBee USB adapter)
+    // gpiochip5 is "Raspberry Pi compatible UP GPIO" routed through CPLD/FPGA
+    // Line numbers on gpiochip5 use BCM GPIO numbering
     this.pinMap = {
-      // Radio Control Pins - using BCM GPIO numbers on gpiochip4
-      13: { chip: 4, line: 27 },  // PTT - Push To Talk (Physical Pin 13 = BCM GPIO 27)
-      15: { chip: 4, line: 22 },  // CS3 - Channel Select 3 (Physical Pin 15 = BCM GPIO 22)
-      16: { chip: 4, line: 23 },  // CS2 - Channel Select 2 (Physical Pin 16 = BCM GPIO 23)
-      18: { chip: 4, line: 24 },  // CS1 - Channel Select 1 (Physical Pin 18 = BCM GPIO 24)
-      22: { chip: 4, line: 25 },  // CS0 - Channel Select 0 (Physical Pin 22 = BCM GPIO 25)
-      32: { chip: 4, line: 12 },  // CLEAR CHANNEL (Physical Pin 32 = BCM GPIO 12)
+      // Radio Control Pins - using BCM GPIO numbers on gpiochip5
+      13: { chip: 5, line: 27 },  // PTT - Push To Talk (Physical Pin 13 = BCM GPIO 27)
+      15: { chip: 5, line: 22 },  // CS3 - Channel Select 3 (Physical Pin 15 = BCM GPIO 22)
+      16: { chip: 5, line: 23 },  // CS2 - Channel Select 2 (Physical Pin 16 = BCM GPIO 23)
+      18: { chip: 5, line: 24 },  // CS1 - Channel Select 1 (Physical Pin 18 = BCM GPIO 24)
+      22: { chip: 5, line: 25 },  // CS0 - Channel Select 0 (Physical Pin 22 = BCM GPIO 25)
+      32: { chip: 5, line: 12 },  // CLEAR CHANNEL (Physical Pin 32 = BCM GPIO 12)
       
       // Additional GPIO pins using BCM numbering
-      12: { chip: 4, line: 18 },  // GPIO 18 (Physical Pin 12)
-      19: { chip: 4, line: 10 },  // GPIO 10 (Physical Pin 19)
-      21: { chip: 4, line: 9 },   // GPIO 9 (Physical Pin 21)
-      33: { chip: 4, line: 13 },  // GPIO 13 (Physical Pin 33)
+      12: { chip: 5, line: 18 },  // GPIO 18 (Physical Pin 12)
+      19: { chip: 5, line: 10 },  // GPIO 10 (Physical Pin 19)
+      21: { chip: 5, line: 9 },   // GPIO 9 (Physical Pin 21)
+      33: { chip: 5, line: 13 },  // GPIO 13 (Physical Pin 33)
     };
 
     // Named pins for radio control
@@ -41,7 +42,7 @@ class GPIOManager {
       GPIO13: 33,       // Physical Pin 33
     };
 
-    this.chipNumber = 4; // gpiochip4 - UP Board CPLD/FPGA controlled GPIO (Raspberry Pi compatible)
+    this.chipNumber = 5; // gpiochip5 - UP Board CPLD/FPGA controlled GPIO (Raspberry Pi compatible)
     this.chip = null;
     this.lines = new Map();
     this.pinStates = new Map();

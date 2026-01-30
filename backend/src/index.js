@@ -81,6 +81,18 @@ async function initialize() {
   try {
     logger.info('Starting Industrial Automation Backend...');
     
+    // Run system validations first
+    const { getSystemValidator } = require('./core/system-validator');
+    const validator = getSystemValidator();
+    const validation = await validator.validateAll();
+    
+    if (!validation.success) {
+      logger.error('System validation failed. Please fix the following errors:');
+      validation.errors.forEach(err => logger.error(`  ✗ ${err}`));
+      logger.error('Backend startup aborted due to validation failures.');
+      process.exit(1);
+    }
+    
     // Initialize database
     await database.initialize();
     logger.info('Database initialized');
@@ -95,11 +107,16 @@ async function initialize() {
     const { initializeSettingsTable } = require('./api/settings');
     initializeSettingsTable();
     
+    // Sync audio files from disk to database
+    const { syncAudioFiles } = require('./api/audio');
+    await syncAudioFiles();
+    logger.info('Audio files synced');
+    
     // Get settings from database
     const db = database.getDb();
     const xbeePortSetting = db.prepare('SELECT value FROM settings WHERE key = ?').get('xbee.port');
     const xbeeBaudSetting = db.prepare('SELECT value FROM settings WHERE key = ?').get('xbee.baudRate');
-    const xbeePort = xbeePortSetting ? xbeePortSetting.value : '/dev/ttyUSB5';
+    const xbeePort = xbeePortSetting ? xbeePortSetting.value : '/dev/ttyUSB0';
     const xbeeBaudRate = xbeeBaudSetting ? parseInt(xbeeBaudSetting.value) : 9600;
     
     // Initialize MQTT client
@@ -170,14 +187,25 @@ async function initialize() {
     
     // Broadcast XBee events to all connected clients
     xbeeManager.on('data', (packet) => {
-      io.emit('xbee:data', {
+      const emitData = {
         timestamp: packet.timestamp || new Date().toISOString(),
         address64: packet.address64,
         address16: packet.address16,
-        data: packet.data,
+        data: Array.from(packet.data || []),
         payload: packet.payload,
-        rssi: packet.rssi
+        payloadHex: packet.payloadHex,
+        payloadBytes: packet.payloadBytes,
+        payloadLength: packet.payloadLength,
+        isPrintable: packet.isPrintable,
+        rssi: packet.rssi,
+        options: packet.options
+      };
+      logger.info('Broadcasting XBee data to WebSocket clients', {
+        service: 'ia-backend',
+        from: packet.address64,
+        payloadHex: packet.payloadHex
       });
+      io.emit('xbee:data', emitData);
     });
     
     xbeeManager.on('device-discovered', (device) => {

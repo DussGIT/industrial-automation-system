@@ -151,7 +151,9 @@ router.put('/:key', (req, res) => {
       WHERE key = ?
     `);
 
-    const result = update.run(String(value), req.params.key);
+    // Trim whitespace from string values
+    const trimmedValue = String(value).trim();
+    const result = update.run(trimmedValue, req.params.key);
 
     if (result.changes === 0) {
       return res.status(404).json({ error: 'Setting not found' });
@@ -159,7 +161,7 @@ router.put('/:key', (req, res) => {
 
     const setting = db.prepare('SELECT * FROM settings WHERE key = ?').get(req.params.key);
 
-    logger.info(`Setting updated: ${req.params.key} = ${value}`);
+    logger.info(`Setting updated: ${req.params.key} = ${trimmedValue}`);
     res.json(setting);
   } catch (error) {
     logger.error('Error updating setting:', error);

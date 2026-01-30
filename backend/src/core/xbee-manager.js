@@ -4,8 +4,23 @@ const logger = require('./logger');
 const { getDb } = require('./database');
 
 /**
+ * Florlink Protocol Message IDs
+ */
+const FLORLINK_MSG = {
+  BUTTON_PRESS: 0x40,
+  BUTTON_PRESS_ACK: 0x41,
+  BUTTON_CANCEL: 0x42,
+  BUTTON_CANCEL_ACK: 0x43,
+  HEARTBEAT: 0x44,
+  CANCEL_BUTTON_ACK: 0x46,
+  LIGHT_TOWER_CONTROL: 0x47,
+  LIGHT_TOWER_ACK: 0x48
+};
+
+/**
  * XBee Manager - Manages communication with Digi XBee modules
  * Supports XBee ZigBee PRO modules in API mode
+ * Implements Florlink messaging protocol with deduplication and ACK
  */
 class XBeeManager extends EventEmitter {
   constructor() {
@@ -18,6 +33,15 @@ class XBeeManager extends EventEmitter {
     this.port = null;
     this.baudRate = 9600;
     this.buffer = Buffer.alloc(0); // Buffer for incoming data
+    
+    // Florlink protocol: deduplication cache
+    // Key: "address64:messageId:button:timestamp"
+    // Value: { timestamp, processed }
+    this.messageCache = new Map();
+    this.CACHE_TIMEOUT_MS = 30000; // 30 seconds
+    
+    // Cleanup cache periodically
+    setInterval(() => this.cleanupMessageCache(), 10000);
   }
 
   /**
@@ -224,6 +248,178 @@ class XBeeManager extends EventEmitter {
   }
 
   /**
+   * Parse Florlink protocol message from payload
+   * Returns null if not a valid Florlink message
+   */
+  parseFlorlinkMessage(payload) {
+    if (!payload || payload.length < 5) {
+      return null; // Not enough bytes for Florlink message
+    }
+
+    const messageId = payload[0];
+    const tryNum = payload[1];
+    const fwVersionHigh = payload[2];
+    const fwVersionLow = payload[3];
+    const fwVersion = (fwVersionHigh << 8) | fwVersionLow;
+
+    // Check if this is a known Florlink message ID
+    const isFlorlinkMsg = Object.values(FLORLINK_MSG).includes(messageId);
+    if (!isFlorlinkMsg) {
+      return null;
+    }
+
+    const message = {
+      messageId,
+      messageIdHex: `0x${messageId.toString(16).padStart(2, '0')}`,
+      tryNum,
+      fwVersion,
+      fwVersionHex: `0x${fwVersion.toString(16).padStart(4, '0')}`
+    };
+
+    // Parse message-specific data
+    switch (messageId) {
+      case FLORLINK_MSG.BUTTON_PRESS:
+        if (payload.length >= 5) {
+          message.buttonNum = payload[4];
+          message.messageType = 'button_press';
+        }
+        break;
+
+      case FLORLINK_MSG.BUTTON_CANCEL:
+        if (payload.length >= 6) {
+          message.buttonNum = payload[4];
+          message.reason = payload[5]; // 0x01=Associate, 0x02=Timeout
+          message.messageType = 'button_cancel';
+        }
+        break;
+
+      case FLORLINK_MSG.HEARTBEAT:
+        if (payload.length >= 7) {
+          message.contactsStatus = payload[4];
+          message.batteryVoltage = (payload[5] << 8) | payload[6];
+          message.messageType = 'heartbeat';
+        }
+        break;
+
+      default:
+        message.messageType = 'unknown_florlink';
+    }
+
+    return message;
+  }
+
+  /**
+   * Generate cache key for message deduplication
+   */
+  getMessageCacheKey(address64, florlinkMsg) {
+    // Use button press time window for dedup (ignore exact tryNum)
+    // Key based on: device + message type + button + time window (1 second)
+    const timeWindow = Math.floor(Date.now() / 1000); // 1-second buckets
+    return `${address64}:${florlinkMsg.messageId}:${florlinkMsg.buttonNum || 0}:${timeWindow}`;
+  }
+
+  /**
+   * Check if message was already processed (deduplication)
+   */
+  isMessageProcessed(address64, florlinkMsg) {
+    const cacheKey = this.getMessageCacheKey(address64, florlinkMsg);
+    const cached = this.messageCache.get(cacheKey);
+    
+    if (cached && (Date.now() - cached.timestamp < this.CACHE_TIMEOUT_MS)) {
+      return true; // Already processed recently
+    }
+    
+    return false;
+  }
+
+  /**
+   * Mark message as processed in cache
+   */
+  markMessageProcessed(address64, florlinkMsg) {
+    const cacheKey = this.getMessageCacheKey(address64, florlinkMsg);
+    this.messageCache.set(cacheKey, {
+      timestamp: Date.now(),
+      processed: true
+    });
+  }
+
+  /**
+   * Cleanup old entries from message cache
+   */
+  cleanupMessageCache() {
+    const now = Date.now();
+    for (const [key, value] of this.messageCache.entries()) {
+      if (now - value.timestamp > this.CACHE_TIMEOUT_MS) {
+        this.messageCache.delete(key);
+      }
+    }
+  }
+
+  /**
+   * Send Florlink Button Press ACK
+   */
+  async sendButtonPressAck(address64, florlinkMsg) {
+    try {
+      const ackPayload = Buffer.from([
+        FLORLINK_MSG.BUTTON_PRESS_ACK,  // Message ID
+        florlinkMsg.tryNum,              // Echo back the Try number
+        florlinkMsg.fwVersion >> 8,      // Firmware version high byte
+        florlinkMsg.fwVersion & 0xFF,    // Firmware version low byte
+        florlinkMsg.buttonNum            // Button being ACKed
+      ]);
+
+      await this.sendData(address64, ackPayload);
+
+      logger.info('Sent Florlink Button Press ACK', {
+        service: 'xbee',
+        to: address64,
+        button: florlinkMsg.buttonNum,
+        try: florlinkMsg.tryNum,
+        ackHex: ackPayload.toString('hex')
+      });
+    } catch (error) {
+      logger.error(`Failed to send Button Press ACK: ${error.message}`, {
+        service: 'xbee',
+        to: address64,
+        error: error.message
+      });
+    }
+  }
+
+  /**
+   * Send Florlink Button Cancel ACK
+   */
+  async sendButtonCancelAck(address64, florlinkMsg) {
+    try {
+      const ackPayload = Buffer.from([
+        FLORLINK_MSG.BUTTON_CANCEL_ACK,  // Message ID
+        florlinkMsg.tryNum,               // Echo back the Try number
+        florlinkMsg.fwVersion >> 8,       // Firmware version high byte
+        florlinkMsg.fwVersion & 0xFF,     // Firmware version low byte
+        florlinkMsg.buttonNum             // Button being ACKed
+      ]);
+
+      await this.sendData(address64, ackPayload);
+
+      logger.info('Sent Florlink Button Cancel ACK', {
+        service: 'xbee',
+        to: address64,
+        button: florlinkMsg.buttonNum,
+        try: florlinkMsg.tryNum
+      });
+    } catch (error) {
+      logger.error(`Failed to send Button Cancel ACK: ${error.message}`, {
+        service: 'xbee',
+        to: address64,
+        error: error.message
+      });
+    }
+  }
+
+  /**
+   * Handle received data packet from remote XBee
+   */
+  /**
    * Handle received data packet from remote XBee
    */
   handleReceivePacket(frame) {
@@ -256,6 +452,192 @@ class XBeeManager extends EventEmitter {
       buttonName = device.name; // Use device name as button name
     }
 
+    // Auto-discover device when we receive data from it
+    if (!this.devices.has(address64)) {
+      const newDevice = {
+        address64,
+        address16,
+        name: `XBee-${address64.slice(-8)}`,
+        nodeIdentifier: `XBee-${address64.slice(-8)}`,
+        deviceType: 'Unknown',
+        status: 'Active',
+        lastSeen: new Date().toISOString()
+      };
+      this.devices.set(address64, newDevice);
+      this.saveDeviceToDb(newDevice);
+      
+      logger.info('Auto-discovered XBee device', {
+        service: 'xbee',
+        address64,
+        name: newDevice.name
+      });
+      
+      this.emit('device-discovered', newDevice);
+    } else {
+      // Update last seen timestamp
+      const existingDevice = this.devices.get(address64);
+      existingDevice.lastSeen = new Date().toISOString();
+      existingDevice.status = 'Active';
+      this.saveDeviceToDb(existingDevice);
+    }
+
+    // Try to parse as Florlink protocol message
+    const florlinkMsg = this.parseFlorlinkMessage(payload);
+    
+    if (florlinkMsg) {
+      logger.info('Received Florlink message', {
+        service: 'xbee',
+        from: address64,
+        deviceName,
+        messageType: florlinkMsg.messageType,
+        messageId: florlinkMsg.messageIdHex,
+        try: florlinkMsg.tryNum,
+        button: florlinkMsg.buttonNum,
+        fwVersion: florlinkMsg.fwVersionHex,
+        payloadHex
+      });
+
+      // Handle based on message type
+      if (florlinkMsg.messageType === 'button_press') {
+        // Check if already processed (deduplication)
+        const isDuplicate = this.isMessageProcessed(address64, florlinkMsg);
+        
+        if (isDuplicate) {
+          logger.info('Duplicate button press detected (retry) - sending ACK but not processing', {
+            service: 'xbee',
+            from: address64,
+            deviceName,
+            button: florlinkMsg.buttonNum,
+            try: florlinkMsg.tryNum
+          });
+        } else {
+          logger.info('New button press detected - will process and ACK', {
+            service: 'xbee',
+            from: address64,
+            deviceName,
+            button: florlinkMsg.buttonNum,
+            try: florlinkMsg.tryNum
+          });
+          
+          // Mark as processed
+          this.markMessageProcessed(address64, florlinkMsg);
+        }
+
+        // ALWAYS send ACK (even for duplicates) to stop device retries
+        this.sendButtonPressAck(address64, florlinkMsg);
+
+        // Only emit to flows if NOT a duplicate
+        if (!isDuplicate) {
+          const packet = {
+            address64,
+            address16,
+            options,
+            payload: isPrintable ? payloadUtf8 : payloadHex,
+            payloadHex,
+            payloadAscii: isPrintable ? payloadAscii : null,
+            payloadUtf8: isPrintable ? payloadUtf8 : null,
+            payloadBytes: Array.from(payload),
+            payloadLength: payload.length,
+            isPrintable,
+            data: payload,
+            timestamp: new Date().toISOString(),
+            deviceName,
+            buttonName,
+            // Florlink protocol fields
+            florlink: {
+              messageType: florlinkMsg.messageType,
+              messageId: florlinkMsg.messageId,
+              messageIdHex: florlinkMsg.messageIdHex,
+              tryNum: florlinkMsg.tryNum,
+              fwVersion: florlinkMsg.fwVersion,
+              fwVersionHex: florlinkMsg.fwVersionHex,
+              buttonNum: florlinkMsg.buttonNum
+            }
+          };
+
+          this.emit('data', packet);
+        }
+        
+        return; // Exit after handling button press
+      }
+
+      if (florlinkMsg.messageType === 'button_cancel') {
+        // Check if already processed
+        const isDuplicate = this.isMessageProcessed(address64, florlinkMsg);
+        
+        // ALWAYS send ACK
+        this.sendButtonCancelAck(address64, florlinkMsg);
+
+        // Only emit if not duplicate
+        if (!isDuplicate) {
+          this.markMessageProcessed(address64, florlinkMsg);
+          
+          const packet = {
+            address64,
+            address16,
+            options,
+            payload: payloadHex,
+            payloadHex,
+            payloadBytes: Array.from(payload),
+            payloadLength: payload.length,
+            isPrintable: false,
+            data: payload,
+            timestamp: new Date().toISOString(),
+            deviceName,
+            buttonName,
+            florlink: {
+              messageType: florlinkMsg.messageType,
+              messageId: florlinkMsg.messageId,
+              tryNum: florlinkMsg.tryNum,
+              fwVersion: florlinkMsg.fwVersion,
+              buttonNum: florlinkMsg.buttonNum,
+              cancelReason: florlinkMsg.reason === 1 ? 'associate' : 'timeout'
+            }
+          };
+
+          this.emit('data', packet);
+        }
+        
+        return;
+      }
+
+      if (florlinkMsg.messageType === 'heartbeat') {
+        // Heartbeats are NOT ACKed per protocol
+        logger.info('Received Florlink heartbeat', {
+          service: 'xbee',
+          from: address64,
+          deviceName,
+          contacts: florlinkMsg.contactsStatus,
+          battery: florlinkMsg.batteryVoltage
+        });
+
+        const packet = {
+          address64,
+          address16,
+          options,
+          payload: payloadHex,
+          payloadHex,
+          payloadBytes: Array.from(payload),
+          payloadLength: payload.length,
+          isPrintable: false,
+          data: payload,
+          timestamp: new Date().toISOString(),
+          deviceName,
+          buttonName,
+          florlink: {
+            messageType: florlinkMsg.messageType,
+            messageId: florlinkMsg.messageId,
+            contactsStatus: florlinkMsg.contactsStatus,
+            batteryVoltage: florlinkMsg.batteryVoltage
+          }
+        };
+
+        this.emit('data', packet);
+        return;
+      }
+    }
+
+    // Non-Florlink message or unknown Florlink message - pass through as before
     const packet = {
       address64,
       address16,

@@ -91,4 +91,30 @@ router.post('/xbee/send', async (req, res) => {
   }
 });
 
+/**
+ * Delete XBee device
+ */
+router.delete('/xbee/devices/:address', async (req, res) => {
+  try {
+    const { address } = req.params;
+    
+    if (!address) {
+      return res.status(400).json({ error: 'Device address required' });
+    }
+    
+    const xbeeManager = getXBeeManager();
+    const result = await xbeeManager.removeDevice(address);
+    
+    if (result) {
+      logger.info(`XBee device removed: ${address}`);
+      res.json({ success: true, message: 'Device removed successfully' });
+    } else {
+      res.status(404).json({ error: 'Device not found' });
+    }
+  } catch (error) {
+    logger.error('Error removing XBee device:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 module.exports = router;

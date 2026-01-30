@@ -11,6 +11,14 @@ export default function AudioLibrary() {
   const [uploadModalOpen, setUploadModalOpen] = useState(false)
   const [editingId, setEditingId] = useState(null)
   const [editName, setEditName] = useState('')
+  
+  // TTS Tester state
+  const [ttsText, setTtsText] = useState('')
+  const [ttsVoice, setTtsVoice] = useState('en_US-lessac-medium')
+  const [ttsSpeed, setTtsSpeed] = useState('1.0')
+  const [ttsLoading, setTtsLoading] = useState(false)
+  const [ttsError, setTtsError] = useState(null)
+  const [ttsAudioUrl, setTtsAudioUrl] = useState(null)
 
   const { data: audioFiles = [], isLoading } = useQuery({
     queryKey: ['audioFiles'],
@@ -106,6 +114,36 @@ export default function AudioLibrary() {
     const mins = Math.floor(seconds / 60)
     const secs = Math.floor(seconds % 60)
     return `${mins}:${secs.toString().padStart(2, '0')}`
+  }
+
+  const handleTtsTest = async () => {
+    if (!ttsText.trim()) {
+      setTtsError('Please enter some text')
+      return
+    }
+
+    setTtsLoading(true)
+    setTtsError(null)
+    setTtsAudioUrl(null)
+
+    try {
+      const response = await api.post('/audio/tts/test', {
+        text: ttsText,
+        voice: ttsVoice,
+        speed: ttsSpeed
+      })
+
+      if (response.audioUrl) {
+        setTtsAudioUrl(response.audioUrl)
+        // Auto-play the generated audio
+        const audio = new Audio(response.audioUrl)
+        audio.play()
+      }
+    } catch (error) {
+      setTtsError(error.response?.data?.error || error.message || 'TTS generation failed')
+    } finally {
+      setTtsLoading(false)
+    }
   }
 
   useEffect(() => {
@@ -312,6 +350,97 @@ export default function AudioLibrary() {
               )}
             </tbody>
           </table>
+        </div>
+      </div>
+
+      {/* TTS Tester */}
+      <div className="bg-gray-800 rounded-lg p-6">
+        <div className="flex items-center gap-2 mb-4">
+          <Volume2 className="w-5 h-5 text-blue-400" />
+          <h2 className="text-lg font-bold text-white">Text-to-Speech Tester</h2>
+          <span className="text-xs bg-blue-600/20 text-blue-400 px-2 py-1 rounded">Preview Only</span>
+        </div>
+        <p className="text-sm text-gray-400 mb-4">
+          Test how your text will sound before using it in flows. Audio is generated temporarily and not saved.
+        </p>
+        
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="md:col-span-2">
+            <label className="block text-sm font-medium text-gray-300 mb-2">
+              Text to Speak
+            </label>
+            <textarea
+              value={ttsText}
+              onChange={(e) => setTtsText(e.target.value)}
+              placeholder="Enter text to convert to speech..."
+              rows="3"
+              className="w-full px-3 py-2 bg-gray-900 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-blue-500"
+            />
+          </div>
+          
+          <div>
+            <label className="block text-sm font-medium text-gray-300 mb-2">
+              Voice Model
+            </label>
+            <select
+              value={ttsVoice}
+              onChange={(e) => setTtsVoice(e.target.value)}
+              className="w-full px-3 py-2 bg-gray-900 border border-gray-700 rounded-lg text-white focus:outline-none focus:border-blue-500"
+            >
+              <option value="en_US-lessac-medium">English (US) - Lessac (Medium)</option>
+              <option value="en_US-lessac-low">English (US) - Lessac (Low Quality)</option>
+              <option value="en_US-libritts-high">English (US) - LibriTTS (High Quality)</option>
+              <option value="en_GB-alan-medium">English (GB) - Alan (Medium)</option>
+            </select>
+          </div>
+          
+          <div>
+            <label className="block text-sm font-medium text-gray-300 mb-2">
+              Speed
+            </label>
+            <select
+              value={ttsSpeed}
+              onChange={(e) => setTtsSpeed(e.target.value)}
+              className="w-full px-3 py-2 bg-gray-900 border border-gray-700 rounded-lg text-white focus:outline-none focus:border-blue-500"
+            >
+              <option value="0.75">0.75x (Slower)</option>
+              <option value="1.0">1.0x (Normal)</option>
+              <option value="1.25">1.25x (Faster)</option>
+              <option value="1.5">1.5x (Very Fast)</option>
+            </select>
+          </div>
+          
+          <div className="md:col-span-2">
+            <button
+              onClick={handleTtsTest}
+              disabled={ttsLoading || !ttsText.trim()}
+              className="w-full px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white rounded-lg flex items-center justify-center gap-2 transition-colors"
+            >
+              {ttsLoading ? (
+                <>
+                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  Generating...
+                </>
+              ) : (
+                <>
+                  <Play className="w-4 h-4" />
+                  Generate & Preview
+                </>
+              )}
+            </button>
+          </div>
+          
+          {ttsError && (
+            <div className="md:col-span-2 p-3 bg-red-900/20 border border-red-600 rounded-lg">
+              <p className="text-sm text-red-400">{ttsError}</p>
+            </div>
+          )}
+          
+          {ttsAudioUrl && (
+            <div className="md:col-span-2 p-3 bg-green-900/20 border border-green-600 rounded-lg">
+              <p className="text-sm text-green-400">✓ TTS generated successfully! Audio is playing.</p>
+            </div>
+          )}
         </div>
       </div>
 

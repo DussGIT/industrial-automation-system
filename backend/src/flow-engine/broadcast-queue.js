@@ -3,20 +3,46 @@
  * Ensures only one radio broadcast happens at a time across all flows
  */
 
+const logger = require('../core/logger');
+
 class BroadcastQueue {
   constructor() {
     this.queue = [];
     this.isProcessing = false;
+    this.currentBroadcast = null;
+    this.stats = {
+      totalBroadcasts: 0,
+      completedBroadcasts: 0,
+      failedBroadcasts: 0
+    };
   }
 
   /**
    * Add a broadcast job to the queue
    * @param {Function} broadcastFn - Async function that performs the broadcast
+   * @param {Object} metadata - Optional metadata about the broadcast
    * @returns {Promise} - Resolves when the broadcast completes
    */
-  async enqueue(broadcastFn) {
+  async enqueue(broadcastFn, metadata = {}) {
     return new Promise((resolve, reject) => {
-      this.queue.push({ broadcastFn, resolve, reject });
+      const job = {
+        broadcastFn,
+        resolve,
+        reject,
+        metadata: {
+          nodeName: metadata.nodeName || 'Unknown',
+          channel: metadata.channel || 0,
+          queuedAt: Date.now(),
+          ...metadata
+        }
+      };
+      
+      this.queue.push(job);
+      logger.info(`Broadcast enqueued (${this.queue.length} in queue)`, {
+        service: 'broadcast-queue',
+        nodeName: job.metadata.nodeName,
+        channel: job.metadata.channel
+      });
       this.processQueue();
     });
   }
@@ -30,22 +56,48 @@ class BroadcastQueue {
     }
 
     this.isProcessing = true;
-    console.log(`[BroadcastQueue] Processing queue (${this.queue.length} jobs waiting)`);
+    logger.info(`Processing broadcast queue (${this.queue.length} jobs waiting)`, {
+      service: 'broadcast-queue'
+    });
 
     while (this.queue.length > 0) {
       const job = this.queue.shift();
-      console.log(`[BroadcastQueue] Processing job (${this.queue.length} remaining)`);
+      this.currentBroadcast = {
+        nodeName: job.metadata.nodeName,
+        channel: job.metadata.channel,
+        startedAt: Date.now()
+      };
+      
+      logger.info(`Processing broadcast job (${this.queue.length} remaining)`, {
+        service: 'broadcast-queue',
+        nodeName: this.currentBroadcast.nodeName
+      });
+      
       try {
         await job.broadcastFn();
-        console.log(`[BroadcastQueue] Job completed successfully`);
+        this.stats.totalBroadcasts++;
+        this.stats.completedBroadcasts++;
+        logger.info(`Broadcast job completed successfully`, {
+          service: 'broadcast-queue',
+          nodeName: this.currentBroadcast.nodeName
+        });
         job.resolve();
       } catch (error) {
-        console.error(`[BroadcastQueue] Job failed:`, error);
+        this.stats.failedBroadcasts++;
+        logger.error(`Broadcast job failed: ${error.message}`, {
+          service: 'broadcast-queue',
+          error: error.message,
+          nodeName: this.currentBroadcast.nodeName
+        });
         job.reject(error);
       }
+      
+      this.currentBroadcast = null;
     }
 
-    console.log(`[BroadcastQueue] Queue empty, processing complete`);
+    logger.info(`Broadcast queue empty, processing complete`, {
+      service: 'broadcast-queue'
+    });
     this.isProcessing = false;
   }
 
@@ -54,6 +106,27 @@ class BroadcastQueue {
    */
   getQueueLength() {
     return this.queue.length;
+  }
+
+  /**
+   * Get broadcast queue status
+   */
+  getStatus() {
+    return {
+      isProcessing: this.isProcessing,
+      queueLength: this.queue.length,
+      currentBroadcast: this.currentBroadcast ? {
+        nodeName: this.currentBroadcast.nodeName,
+        channel: this.currentBroadcast.channel,
+        elapsed: Date.now() - this.currentBroadcast.startedAt
+      } : null,
+      queue: this.queue.map(job => ({
+        nodeName: job.metadata.nodeName,
+        channel: job.metadata.channel,
+        queuedAt: job.metadata.queuedAt
+      })),
+      stats: this.stats
+    };
   }
 }
 

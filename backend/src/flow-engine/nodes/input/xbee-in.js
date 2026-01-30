@@ -46,7 +46,7 @@ class XBeeInNode extends BaseNode {
         
         case 'button':
           // Semantic button filter: "button 0", "button 1 press", "cancel"
-          // Understands XBee button protocol: byte[0]=message type, byte[1]=button number
+          // Florlink protocol: byte[0]=message ID, byte[1]=try, byte[2-3]=FW version, byte[4]=button number
           const filterLower = filter.toLowerCase();
           
           logger.info('Button filter check', {
@@ -54,7 +54,8 @@ class XBeeInNode extends BaseNode {
             filter,
             filterLower,
             byte0: payloadBytes[0],
-            byte1: payloadBytes[1]
+            byte1: payloadBytes[1],
+            byte4: payloadBytes[4]
           });
           
           // Check for cancel action (byte[0] = 0x42 = 66)
@@ -71,12 +72,12 @@ class XBeeInNode extends BaseNode {
               buttonNumber,
               expectedByte0: 64,
               actualByte0: payloadBytes[0],
-              expectedByte1: buttonNumber,
-              actualByte1: payloadBytes[1],
-              matches: payloadBytes[0] === 64 && payloadBytes[1] === buttonNumber
+              expectedByte4: buttonNumber,
+              actualByte4: payloadBytes[4],
+              matches: payloadBytes[0] === 64 && payloadBytes[4] === buttonNumber
             });
-            // Check for button press: byte[0] = 0x40 (64) AND byte[1] = button number
-            return payloadBytes[0] === 64 && payloadBytes[1] === buttonNumber;
+            // Check for button press: byte[0] = 0x40 (64) AND byte[4] = button number (Florlink protocol)
+            return payloadBytes[0] === 64 && payloadBytes[4] === buttonNumber;
           }
           
           return false;

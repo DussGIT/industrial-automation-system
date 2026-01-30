@@ -1,0 +1,12 @@
+version: '3.8'
+
+# Override to disable central server services on UP Board
+services:
+  backend:
+    environment:
+      - XBEE_PORT=/dev/ttyUSB5
+    deploy:
+      replicas: 0
+  aggregator:
+    deploy:
+      replicas: 0

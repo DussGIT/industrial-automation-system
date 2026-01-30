@@ -53,8 +53,12 @@ Write-Host "Directory created" -ForegroundColor Green
 Write-Host ""
 Write-Host "[3/4] Copying files to UP board..." -ForegroundColor Yellow
 Write-Host "This may take a few minutes..." -ForegroundColor Gray
+Write-Host "  - Excluding data/ directory to preserve database and audio files" -ForegroundColor Gray
 
-scp -r docker-compose.yml backend frontend deployment "$BoardUser@$BoardIP`:~/industrial-automation/"
+scp docker-compose.yml "$BoardUser@$BoardIP`:~/industrial-automation/"
+scp -r --exclude='data' backend "$BoardUser@$BoardIP`:~/industrial-automation/"
+scp -r frontend "$BoardUser@$BoardIP`:~/industrial-automation/"
+scp -r deployment "$BoardUser@$BoardIP`:~/industrial-automation/"
 
 if ($LASTEXITCODE -eq 0) {
     Write-Host "Files copied successfully!" -ForegroundColor Green
@@ -69,11 +73,11 @@ Write-Host "[4/4] Building and starting containers..." -ForegroundColor Yellow
 
 $deployCmd = @"
 cd ~/industrial-automation && \
-docker compose down 2>/dev/null; \
 docker compose build && \
+docker compose stop 2>/dev/null; \
 docker compose up -d && \
 echo "" && \
-echo "Deployment complete!" && \
+echo "Deployment complete! (Data directory preserved)" && \
 echo "Containers running:" && \
 docker compose ps
 "@

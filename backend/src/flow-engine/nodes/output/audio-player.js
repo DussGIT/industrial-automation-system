@@ -46,14 +46,14 @@ class AudioPlayerNode extends BaseNode {
           command = `for i in {1..${repeat}}; do ${command}; done`;
         }
       } else {
-        // Linux: Use aplay, paplay, or ffplay
-        command = `aplay "${absolutePath}" || paplay "${absolutePath}" || ffplay -nodisp -autoexit "${absolutePath}"`;
+        // Linux: Use aplay with HDMI device (plughw:0,3)
+        command = `aplay -D plughw:0,3 "${absolutePath}" 2>/dev/null || aplay "${absolutePath}" || paplay "${absolutePath}" || ffplay -nodisp -autoexit "${absolutePath}"`;
         if (repeat > 1) {
           command = `for i in {1..${repeat}}; do ${command}; done`;
         }
       }
 
-      this.log(`Executing audio playback command`, 'debug');
+      this.log(`Executing audio playback command: ${command}`, 'info');
 
       exec(command, { windowsHide: true, timeout: 30000 }, (error, stdout, stderr) => {
         if (error) {

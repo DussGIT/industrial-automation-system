@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { getRadioManager } = require('../core/radio-manager');
+const { getBroadcastQueue } = require('../flow-engine/broadcast-queue');
 const logger = require('../core/logger');
 
 /**
@@ -8,12 +9,36 @@ const logger = require('../core/logger');
  */
 router.get('/status', (req, res) => {
   try {
-    const radioManager = getRadioManager();
-    const status = radioManager.getStatus();
+    // Return broadcast queue status instead of radio-manager
+    // since we're using broadcast-queue for radio broadcasts
+    const broadcastQueue = getBroadcastQueue();
+    const queueStatus = broadcastQueue.getStatus();
     
     res.json({
       success: true,
-      status
+      status: {
+        isTransmitting: queueStatus.isProcessing,
+        queueLength: queueStatus.queueLength,
+        currentTransmission: queueStatus.currentBroadcast ? {
+          nodeName: queueStatus.currentBroadcast.nodeName,
+          frequency: queueStatus.currentBroadcast.channel,
+          elapsed: queueStatus.currentBroadcast.elapsed,
+          audioFile: 'TTS Broadcast'
+        } : null,
+        queue: queueStatus.queue.map(q => ({
+          nodeName: q.nodeName,
+          frequency: q.channel,
+          audioFile: 'TTS Broadcast',
+          queuedAt: q.queuedAt
+        })),
+        estimatedWaitTime: 0,
+        stats: {
+          totalTransmissions: queueStatus.stats.totalBroadcasts,
+          queuedTransmissions: queueStatus.stats.completedBroadcasts,
+          failedTransmissions: queueStatus.stats.failedBroadcasts,
+          lastTransmission: null
+        }
+      }
     });
   } catch (error) {
     logger.error(`Failed to get radio status: ${error.message}`, {

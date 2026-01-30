@@ -163,6 +163,28 @@ const createTables = () => {
     CREATE INDEX IF NOT EXISTS idx_devices_status 
     ON devices(status)
   `);
+
+  // Settings table
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS settings (
+      key TEXT PRIMARY KEY,
+      value TEXT NOT NULL,
+      type TEXT NOT NULL,
+      category TEXT NOT NULL,
+      label TEXT NOT NULL,
+      description TEXT,
+      updated_at INTEGER DEFAULT (strftime('%s', 'now'))
+    )
+  `);
+
+  // Device names table (custom user-assigned names)
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS device_names (
+      address TEXT PRIMARY KEY,
+      custom_name TEXT NOT NULL,
+      updated_at INTEGER DEFAULT (strftime('%s', 'now'))
+    )
+  `);
 };
 
 const getDb = () => {

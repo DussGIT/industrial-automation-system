@@ -19,7 +19,7 @@ const Dashboard = () => {
     queryKey: ['radioStatus'],
     queryFn: async () => {
       const response = await api.get('/radio/status')
-      return response.data.status
+      return response.status
     },
     refetchInterval: 2000, // Poll every 2 seconds
     retry: false
