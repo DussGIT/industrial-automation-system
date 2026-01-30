@@ -12,6 +12,7 @@ class RadioChannelNode extends BaseNode {
     
     // The config.config property contains the actual node configuration
     const nodeConfig = config.config || config;
+    this.radioId = nodeConfig.radioId || 'default'; // Radio profile ID
     this.channel = nodeConfig.channel !== undefined ? parseInt(nodeConfig.channel) : 0;
     this.gpio = getGPIOManager();
   }
@@ -36,10 +37,10 @@ class RadioChannelNode extends BaseNode {
         throw new Error(`Invalid channel: ${channel}. Must be 0-15`);
       }
       
-      this.log(`Setting channel to ${channel} (configured: ${this.channel})`);
+      this.log(`Setting channel to ${channel} (configured: ${this.channel}, radio: ${this.radioId})`);
 
       // Set the channel
-      const result = await this.gpio.setChannel(channel);
+      const result = await this.gpio.setChannel(channel, this.radioId);
       
       if (!result) {
         throw new Error(`Failed to set channel ${channel} - GPIO write failed`);

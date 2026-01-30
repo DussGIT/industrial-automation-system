@@ -28,7 +28,30 @@ class GPIOManager {
       33: { chip: 5, line: 13 },  // GPIO 13 (Physical Pin 33)
     };
 
-    // Named pins for radio control
+    // Radio profiles - allows multiple radios with different pin configurations
+    this.radioProfiles = {
+      default: {
+        name: "ERM100 Primary",
+        pttPin: 13,        // Physical Pin 13
+        cs0Pin: 22,        // Physical Pin 22
+        cs1Pin: 18,        // Physical Pin 18
+        cs2Pin: 16,        // Physical Pin 16
+        cs3Pin: 15,        // Physical Pin 15
+        clearChannelPin: 32 // Physical Pin 32
+      }
+      // Future radios can be added here:
+      // analog_backup: {
+      //   name: "Analog Backup Radio",
+      //   pttPin: 12,        // Different physical pin
+      //   cs0Pin: 19,
+      //   cs1Pin: 21,
+      //   cs2Pin: 33,
+      //   cs3Pin: 35,
+      //   clearChannelPin: 37
+      // }
+    };
+
+    // Named pins for radio control (default profile for backward compatibility)
     this.pins = {
       PTT: 13,          // Physical Pin 13
       CS0: 22,          // Physical Pin 22
@@ -186,34 +209,66 @@ class GPIOManager {
   }
 
   /**
+   * Get radio profile by ID
+   * @param {string} radioId - Radio profile ID (defaults to 'default')
+   * @returns {object} Radio profile configuration
+   */
+  getRadioProfile(radioId = 'default') {
+    const profile = this.radioProfiles[radioId];
+    if (!profile) {
+      logger.warn(`Radio profile '${radioId}' not found, using 'default'`);
+      return this.radioProfiles.default;
+    }
+    return profile;
+  }
+
+  /**
+   * Get available radio profiles
+   * @returns {Array} Array of {id, name} objects
+   */
+  getAvailableRadioProfiles() {
+    return Object.keys(this.radioProfiles).map(id => ({
+      id,
+      name: this.radioProfiles[id].name
+    }));
+  }
+
+  /**
    * Activate PTT (Push To Talk)
    * AWR ERM100 uses active-low PTT (0 = transmit, 1 = idle)
+   * @param {string} radioId - Radio profile ID (optional, defaults to 'default')
    */
-  async activatePTT() {
-    logger.info('Activating PTT');
-    return await this.writePin(this.pins.PTT, 0);
+  async activatePTT(radioId = 'default') {
+    const profile = this.getRadioProfile(radioId);
+    logger.info(`Activating PTT for ${profile.name}`);
+    return await this.writePin(profile.pttPin, 0);
   }
 
   /**
    * Deactivate PTT (Push To Talk)
    * AWR ERM100 uses active-low PTT (0 = transmit, 1 = idle)
+   * @param {string} radioId - Radio profile ID (optional, defaults to 'default')
    */
-  async deactivatePTT() {
-    logger.info('Deactivating PTT');
-    return await this.writePin(this.pins.PTT, 1);
+  async deactivatePTT(radioId = 'default') {
+    const profile = this.getRadioProfile(radioId);
+    logger.info(`Deactivating PTT for ${profile.name}`);
+    return await this.writePin(profile.pttPin, 1);
   }
 
   /**
    * Set radio channel (0-15)
    * @param {number} channel - Channel number (0-15)
+   * @param {string} radioId - Radio profile ID (optional, defaults to 'default')
    */
-  async setChannel(channel) {
+  async setChannel(channel, radioId = 'default') {
+    const profile = this.getRadioProfile(radioId);
+    
     if (channel < 0 || channel > 15) {
       logger.error(`Invalid channel ${channel}. Must be 0-15`);
       return false;
     }
 
-    logger.info(`Setting radio channel to ${channel}`);
+    logger.info(`Setting ${profile.name} channel to ${channel}`);
 
     // Calculate pin values for binary encoding
     const cs0 = (channel & 0x01) !== 0 ? 1 : 0;
@@ -222,26 +277,26 @@ class GPIOManager {
     const cs3 = (channel & 0x08) !== 0 ? 1 : 0;
 
     logger.info(`Channel ${channel} binary: CS3=${cs3} CS2=${cs2} CS1=${cs1} CS0=${cs0}`);
-    logger.info(`Physical pins: CS0=${this.pins.CS0}, CS1=${this.pins.CS1}, CS2=${this.pins.CS2}, CS3=${this.pins.CS3}`);
+    logger.info(`Physical pins: CS0=${profile.cs0Pin}, CS1=${profile.cs1Pin}, CS2=${profile.cs2Pin}, CS3=${profile.cs3Pin}`);
 
     // Set channel select pins (binary encoding) with small delay between each
-    logger.info(`Setting CS0 (pin ${this.pins.CS0}) to ${cs0}`);
-    const result0 = await this.writePin(this.pins.CS0, cs0);
+    logger.info(`Setting CS0 (pin ${profile.cs0Pin}) to ${cs0}`);
+    const result0 = await this.writePin(profile.cs0Pin, cs0);
     logger.info(`CS0 result: ${result0}`);
     await this.sleep(10); // Small delay
     
-    logger.info(`Setting CS1 (pin ${this.pins.CS1}) to ${cs1}`);
-    const result1 = await this.writePin(this.pins.CS1, cs1);
+    logger.info(`Setting CS1 (pin ${profile.cs1Pin}) to ${cs1}`);
+    const result1 = await this.writePin(profile.cs1Pin, cs1);
     logger.info(`CS1 result: ${result1}`);
     await this.sleep(10);
     
-    logger.info(`Setting CS2 (pin ${this.pins.CS2}) to ${cs2}`);
-    const result2 = await this.writePin(this.pins.CS2, cs2);
+    logger.info(`Setting CS2 (pin ${profile.cs2Pin}) to ${cs2}`);
+    const result2 = await this.writePin(profile.cs2Pin, cs2);
     logger.info(`CS2 result: ${result2}`);
     await this.sleep(10);
     
-    logger.info(`Setting CS3 (pin ${this.pins.CS3}) to ${cs3}`);
-    const result3 = await this.writePin(this.pins.CS3, cs3);
+    logger.info(`Setting CS3 (pin ${profile.cs3Pin}) to ${cs3}`);
+    const result3 = await this.writePin(profile.cs3Pin, cs3);
     logger.info(`CS3 result: ${result3}`);
 
     if (!result0 || !result1 || !result2 || !result3) {
@@ -253,38 +308,13 @@ class GPIOManager {
     // Verify pin states
     const states = this.getPinStates();
     logger.info(`Verification - Pin states after setting channel ${channel}:`);
-    logger.info(`  CS0 (pin ${this.pins.CS0}): expected=${cs0}, actual=${states[this.pins.CS0]}`);
-    logger.info(`  CS1 (pin ${this.pins.CS1}): expected=${cs1}, actual=${states[this.pins.CS1]}`);
-    logger.info(`  CS2 (pin ${this.pins.CS2}): expected=${cs2}, actual=${states[this.pins.CS2]}`);
-    logger.info(`  CS3 (pin ${this.pins.CS3}): expected=${cs3}, actual=${states[this.pins.CS3]}`);
+    logger.info(`  CS0 (pin ${profile.cs0Pin}): expected=${cs0}, actual=${states[profile.cs0Pin]}`);
+    logger.info(`  CS1 (pin ${profile.cs1Pin}): expected=${cs1}, actual=${states[profile.cs1Pin]}`);
+    logger.info(`  CS2 (pin ${profile.cs2Pin}): expected=${cs2}, actual=${states[profile.cs2Pin]}`);
+    logger.info(`  CS3 (pin ${profile.cs3Pin}): expected=${cs3}, actual=${states[profile.cs3Pin]}`);
 
     logger.info(`Channel ${channel} set successfully`);
     return true;
-  }
-
-  /**
-   * Enable/disable clear channel mode
-   * @param {boolean} enabled - True to enable, false to disable
-   */
-  async setClearChannel(enabled) {
-    logger.info(`${enabled ? 'Enabling' : 'Disabling'} clear channel mode`);
-    return await this.writePin(this.pins.CLEAR_CHANNEL, enabled ? 1 : 0);
-  }
-
-  /**
-   * Activate Clear Channel
-   */
-  async activateClearChannel() {
-    logger.info('Activating Clear Channel');
-    return await this.writePin(this.pins.CLEAR_CHANNEL, 1);
-  }
-
-  /**
-   * Deactivate Clear Channel
-   */
-  async deactivateClearChannel() {
-    logger.info('Deactivating Clear Channel');
-    return await this.writePin(this.pins.CLEAR_CHANNEL, 0);
   }
 
   /**

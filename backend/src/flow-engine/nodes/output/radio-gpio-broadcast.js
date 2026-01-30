@@ -26,6 +26,7 @@ class RadioGPIOBroadcastNode extends BaseNode {
     console.log('[RADIO GPIO BROADCAST CONSTRUCTOR] Extracted nodeConfig:', JSON.stringify(nodeConfig, null, 2));
     console.log('[RADIO GPIO BROADCAST CONSTRUCTOR] audioSource will be:', nodeConfig.audioSource || 'file');
     
+    this.radioId = nodeConfig.radioId || 'default'; // Radio profile ID
     this.audioSource = nodeConfig.audioSource || 'file'; // 'file' or 'tts'
     this.audioFileId = nodeConfig.audioFileId || null;
     this.ttsText = nodeConfig.ttsText || '';
@@ -37,6 +38,7 @@ class RadioGPIOBroadcastNode extends BaseNode {
     this.repeat = nodeConfig.repeat || 1;
     
     const finalValues = {
+      radioId: this.radioId,
       audioSource: this.audioSource,
       ttsText: this.ttsText,
       audioFileId: this.audioFileId
@@ -329,8 +331,8 @@ class RadioGPIOBroadcastNode extends BaseNode {
 
       try {
         // Step 1: Set radio channel
-        this.log(`Setting radio channel to ${channel}`, 'info');
-        const channelResult = await this.gpio.setChannel(channel);
+        this.log(`Setting radio channel to ${channel} (${this.radioId})`, 'info');
+        const channelResult = await this.gpio.setChannel(channel, this.radioId);
         if (!channelResult) {
           throw new Error('Failed to set radio channel');
         }
@@ -349,8 +351,8 @@ class RadioGPIOBroadcastNode extends BaseNode {
         }
 
         // Step 3: Activate PTT
-        this.log('Activating PTT', 'info');
-        const pttResult = await this.gpio.activatePTT();
+        this.log(`Activating PTT (${this.radioId})`, 'info');
+        const pttResult = await this.gpio.activatePTT(this.radioId);
         if (!pttResult) {
           throw new Error('Failed to activate PTT');
         }
@@ -373,8 +375,8 @@ class RadioGPIOBroadcastNode extends BaseNode {
       } finally {
         // Step 5: Always deactivate PTT, even if there was an error
         if (pttActivated) {
-          this.log('Deactivating PTT', 'info');
-          await this.gpio.deactivatePTT();
+          this.log(`Deactivating PTT (${this.radioId})`, 'info');
+          await this.gpio.deactivatePTT(this.radioId);
           this.log('PTT deactivated', 'info');
         }
         
