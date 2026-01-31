@@ -35,8 +35,10 @@ class RadioGPIOBroadcastNode extends BaseNode {
     this.channel = nodeConfig.channel !== undefined ? parseInt(nodeConfig.channel) : 0;
     this.waitForClear = nodeConfig.waitForClear !== undefined ? nodeConfig.waitForClear : false; // Changed default to false
     this.clearChannelTimeout = nodeConfig.clearChannelTimeout || 5000; // ms
-    this.repeat = nodeConfig.repeat || 1;
+    this.repeatCount = nodeConfig.repeat || 1;
     this.repeatDelay = nodeConfig.repeatDelay || 0; // ms delay between repeats
+    
+    console.log('[REPEAT DEBUG] nodeConfig.repeat:', nodeConfig.repeat, 'this.repeatCount:', this.repeatCount, 'typeof:', typeof this.repeatCount);
     
     const finalValues = {
       radioId: this.radioId,
@@ -218,15 +220,21 @@ class RadioGPIOBroadcastNode extends BaseNode {
     
     try {
       // Determine source for cancellation tracking
+      // Check both msg.payload (for object payloads) and msg top-level (for XBee nodes)
       const source = msg.payload?.source 
+                  || msg.buttonName           // XBee sends buttonName at top level
+                  || msg.deviceName           // XBee sends deviceName at top level
                   || msg.payload?.buttonName 
                   || msg.payload?.deviceName
                   || this.name 
                   || 'unknown';
       
       // Get repeat config (can be overridden by message)
-      const repeat = msg.payload?.repeat !== undefined ? msg.payload.repeat : this.repeat;
-      const repeatDelay = msg.payload?.repeatDelay !== undefined ? msg.payload.repeatDelay : this.repeatDelay;
+      // Only check payload.repeat if payload is an object (not a string like XBee hex data)
+      const numRepeats = (typeof msg.payload === 'object' && msg.payload?.repeat !== undefined) ? msg.payload.repeat : this.repeatCount;
+      const repeatDelay = (typeof msg.payload === 'object' && msg.payload?.repeatDelay !== undefined) ? msg.payload.repeatDelay : this.repeatDelay;
+      
+      console.log('[RECEIVE DEBUG] numRepeats:', numRepeats, 'typeof:', typeof numRepeats, 'this.repeatCount:', this.repeatCount, 'payload type:', typeof msg.payload);
       
       // Enqueue first broadcast
       const metadata = {
@@ -235,15 +243,17 @@ class RadioGPIOBroadcastNode extends BaseNode {
         channel: this.channel,
         audioSource: this.audioSource,
         currentRepeat: 1,
-        totalRepeats: repeat
+        totalRepeats: numRepeats
       };
+      
+      console.log('[METADATA DEBUG] metadata.totalRepeats:', metadata.totalRepeats, 'typeof:', typeof metadata.totalRepeats);
       
       await this.broadcastQueue.enqueue(
         () => this.processBroadcastWithRepeat(msg, metadata, repeatDelay),
         metadata
       );
       
-      this.log(`Broadcast sequence initiated (${repeat} repeats)`, 'info');
+      this.log(`Broadcast sequence initiated (${numRepeats} repeats)`, 'info');
     } catch (error) {
       this.log(`Broadcast failed: ${error.message}`, 'error');
     }
@@ -254,6 +264,8 @@ class RadioGPIOBroadcastNode extends BaseNode {
    */
   async processBroadcastWithRepeat(msg, metadata, repeatDelay) {
     const { source, currentRepeat, totalRepeats } = metadata;
+    
+    console.log(`[REPEAT PROCESS DEBUG] currentRepeat: ${currentRepeat}/${totalRepeats}, repeatDelay: ${repeatDelay}ms`);
     
     this.log(`Broadcasting (${currentRepeat}/${totalRepeats}) from ${source}`, 'info');
     

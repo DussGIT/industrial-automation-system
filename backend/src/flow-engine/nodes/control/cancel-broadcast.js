@@ -60,7 +60,10 @@ class CancelBroadcastNode extends BaseNode {
       source = this.replaceTemplateVariables(this.cancelSource, msg);
     } else {
       // Get source from message payload
+      // Check both msg.payload (for object payloads) and msg top-level (for XBee nodes)
       source = msg.payload?.source 
+            || msg.buttonName           // XBee sends buttonName at top level
+            || msg.deviceName           // XBee sends deviceName at top level
             || msg.payload?.buttonName 
             || msg.payload?.deviceName
             || msg.payload?.cancelSource;

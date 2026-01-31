@@ -12,6 +12,8 @@ import AudioLibrary from './pages/AudioLibrary'
 import Devices from './pages/DevicesUnified'
 import XBeeMonitor from './pages/XBeeMonitor'
 import BluetoothMonitor from './pages/BluetoothMonitor'
+import Cameras from './pages/Cameras'
+import UnknownEvents from './pages/UnknownEvents'
 
 function App() {
   return (
@@ -27,6 +29,8 @@ function App() {
       <Route path="/interfaces" element={<Layout><Interfaces /></Layout>} />
       <Route path="/audio" element={<Layout><AudioLibrary /></Layout>} />
       <Route path="/devices" element={<Layout><Devices /></Layout>} />
+      <Route path="/cameras" element={<Layout><Cameras /></Layout>} />
+      <Route path="/unknown-events" element={<Layout><UnknownEvents /></Layout>} />
       <Route path="/xbee" element={<Layout><XBeeMonitor /></Layout>} />
       <Route path="/bluetooth" element={<Layout><BluetoothMonitor /></Layout>} />
       <Route path="/logs" element={<Layout><Logs /></Layout>} />

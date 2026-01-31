@@ -1,0 +1,193 @@
+{
+  "id": "axis-m1075-l-v1",
+  "deviceType": "camera",
+  "manufacturer": "Axis",
+  "model": "M1075-L",
+  "version": "1.0",
+  "protocol": "http-vapix",
+  
+  "description": "AXIS M1075-L Box Camera with deep learning, PIR sensor, and two-way audio. Ideal for small stores and residential care.",
+  
+  "capabilities": {
+    "analytics": ["motion", "dwelling", "lineCrossing", "intrusion", "faceDetection"],
+    "resolution": "1920x1080",
+    "audio": true,
+    "twoWayAudio": true,
+    "pir": true,
+    "ir": true,
+    "wdr": true
+  },
+  
+  "eventMappings": {
+    "tns1:RuleEngine/FieldDetector/ObjectsInside": {
+      "eventType": "dwelling",
+      "description": "Object dwelling/loitering in defined area",
+      "fields": {
+        "confidence": 95,
+        "region": "$.Source.SimpleItem[?(@.Name=='VideoSource')].Value",
+        "duration": "$.Data.SimpleItem[?(@.Name=='DwellTime')].Value"
+      }
+    },
+    "tns1:VideoAnalytics/Motion": {
+      "eventType": "motion",
+      "description": "Motion detected in frame",
+      "fields": {
+        "confidence": 100,
+        "region": "$.Source.SimpleItem[?(@.Name=='VideoSource')].Value"
+      }
+    },
+    "tns1:VideoAnalytics/MotionDetection": {
+      "eventType": "motion",
+      "description": "AXIS Video Motion Detection",
+      "fields": {
+        "confidence": 100,
+        "region": "$.Source.SimpleItem[?(@.Name=='Window')].Value"
+      }
+    },
+    "tns1:RuleEngine/LineCrossing/Crossing": {
+      "eventType": "lineCrossing",
+      "description": "Line crossing detected",
+      "fields": {
+        "confidence": 90,
+        "direction": "$.Data.SimpleItem[?(@.Name=='Direction')].Value",
+        "region": "$.Source.SimpleItem[?(@.Name=='Rule')].Value"
+      }
+    },
+    "tns1:RuleEngine/FieldDetector/Intrusion": {
+      "eventType": "intrusion",
+      "description": "Object entered defined area",
+      "fields": {
+        "confidence": 90,
+        "region": "$.Source.SimpleItem[?(@.Name=='Rule')].Value"
+      }
+    },
+    "tns1:Device/Tampering": {
+      "eventType": "tamper",
+      "description": "Camera tampering detected",
+      "fields": {
+        "confidence": 100
+      }
+    },
+    "tns1:Device/PIR": {
+      "eventType": "motion",
+      "description": "PIR motion sensor triggered",
+      "fields": {
+        "confidence": 100,
+        "source": "pir"
+      }
+    }
+  },
+  
+  "configFields": {
+    "name": {
+      "type": "string",
+      "required": true,
+      "label": "Camera Name",
+      "description": "Friendly name for this camera",
+      "placeholder": "Front Entrance"
+    },
+    "ipAddress": {
+      "type": "string",
+      "required": true,
+      "label": "IP Address",
+      "description": "Camera IP address on local network",
+      "placeholder": "192.168.1.100",
+      "validation": "^(?:[0-9]{1,3}\\.){3}[0-9]{1,3}$"
+    },
+    "port": {
+      "type": "number",
+      "required": false,
+      "label": "HTTP Port",
+      "default": 80,
+      "description": "HTTP port for camera web interface"
+    },
+    "username": {
+      "type": "string",
+      "required": true,
+      "label": "Username",
+      "default": "root",
+      "description": "Camera admin username"
+    },
+    "password": {
+      "type": "password",
+      "required": true,
+      "label": "Password",
+      "description": "Camera admin password"
+    },
+    "eventEndpoint": {
+      "type": "computed",
+      "label": "Event Endpoint URL",
+      "description": "Configure this URL in camera action rules",
+      "template": "http://{hubIpAddress}:3000/api/events/camera/{deviceId}"
+    }
+  },
+  
+  "setupInstructions": {
+    "title": "AXIS M1075-L Setup Instructions",
+    "steps": [
+      {
+        "step": 1,
+        "title": "Access Camera Interface",
+        "description": "Open web browser and navigate to http://{ipAddress}",
+        "details": "Login with username and password. Default username is usually 'root'."
+      },
+      {
+        "step": 2,
+        "title": "Configure Events to Monitor",
+        "description": "Navigate to System → Events → Device events",
+        "details": "Enable the analytics you want to monitor: Motion detection, Object analytics (dwelling), Line crossing, etc."
+      },
+      {
+        "step": 3,
+        "title": "Set Up Action Rules",
+        "description": "Navigate to System → Events → Action rules",
+        "details": "Create a new rule for each event type you want to capture."
+      },
+      {
+        "step": 4,
+        "title": "Configure HTTP Recipient",
+        "description": "For each action rule:",
+        "details": [
+          "Trigger: Select the event type (e.g., 'AXIS Object Analytics')",
+          "Action: Select 'Send notification to HTTP'",
+          "Recipient: Click 'Add recipient'",
+          "URL: {eventEndpoint}",
+          "Method: POST",
+          "Content-Type: application/json",
+          "Body: Leave default or customize JSON payload"
+        ]
+      },
+      {
+        "step": 5,
+        "title": "Configure Analytics",
+        "description": "Navigate to Apps → AXIS Object Analytics",
+        "details": [
+          "Create scenarios: Draw zones/lines on camera view",
+          "For dwelling: Set time threshold (e.g., 5 seconds)",
+          "For line crossing: Set direction (any, left-to-right, right-to-left)",
+          "Adjust sensitivity as needed"
+        ]
+      },
+      {
+        "step": 6,
+        "title": "Test Events",
+        "description": "Trigger an event in view of the camera",
+        "details": "Check the hub's Unknown Events dashboard to verify events are being received. If event appears as unknown, you can map it to the correct event type."
+      }
+    ]
+  },
+  
+  "documentation": {
+    "manual": "https://www.axis.com/products/axis-m1075-l/support",
+    "vapixApi": "https://www.axis.com/vapix-library",
+    "videoAnalytics": "https://www.axis.com/products/axis-object-analytics"
+  },
+  
+  "notes": [
+    "AXIS Object Analytics requires scenario configuration in camera",
+    "PIR sensor can detect motion even in complete darkness",
+    "Supports up to 10 different action rules",
+    "Event confidence levels are estimates based on typical performance",
+    "For best results, configure detection zones to exclude irrelevant areas"
+  ]
+}

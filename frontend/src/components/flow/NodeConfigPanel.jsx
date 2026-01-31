@@ -1325,12 +1325,16 @@ const NodeConfigPanel = ({ node, onClose, onSave, isRunning = false }) => {
                   const buttonNum = e.target.value;
                   const newConfig = { ...config, buttonNumber: buttonNum };
                   // Auto-set filter based on selections
-                  if (buttonNum === '') {
+                  // If cancel action, always use button filter type
+                  if (config.buttonAction === 'cancel') {
+                    newConfig.filterType = 'button';
+                    newConfig.payloadFilter = 'cancel';
+                  } else if (buttonNum === '') {
                     newConfig.filterType = 'contains';
                     newConfig.payloadFilter = '';
                   } else {
                     newConfig.filterType = 'button';
-                    newConfig.payloadFilter = config.buttonAction === 'cancel' ? 'cancel' : buttonNum;
+                    newConfig.payloadFilter = buttonNum;
                   }
                   setConfig(newConfig);
                 }}
@@ -1354,9 +1358,17 @@ const NodeConfigPanel = ({ node, onClose, onSave, isRunning = false }) => {
                   const action = e.target.value;
                   const newConfig = { ...config, buttonAction: action };
                   // Auto-set filter based on selections
-                  if (config.buttonNumber) {
+                  if (action === 'cancel') {
+                    // Cancel action always uses button filter type
                     newConfig.filterType = 'button';
-                    newConfig.payloadFilter = action === 'cancel' ? 'cancel' : config.buttonNumber;
+                    newConfig.payloadFilter = 'cancel';
+                  } else if (config.buttonNumber) {
+                    newConfig.filterType = 'button';
+                    newConfig.payloadFilter = config.buttonNumber;
+                  } else if (action === '') {
+                    // Any action with no button number = match all
+                    newConfig.filterType = 'contains';
+                    newConfig.payloadFilter = '';
                   }
                   setConfig(newConfig);
                 }}

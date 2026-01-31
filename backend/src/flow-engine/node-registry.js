@@ -30,6 +30,10 @@ class NodeRegistry {
       for (const file of files) {
         try {
           const nodePath = path.join(categoryPath, file);
+          
+          // Clear require cache to ensure fresh load
+          delete require.cache[require.resolve(nodePath)];
+          
           const NodeClass = require(nodePath);
           
           if (NodeClass && NodeClass.type) {

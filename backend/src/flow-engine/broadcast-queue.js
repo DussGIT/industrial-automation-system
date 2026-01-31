@@ -30,7 +30,9 @@ class BroadcastQueue {
       const source = metadata.source || 'unknown';
       
       // Get or create cancel token for this source
-      if (!this.activeBroadcasts.has(source)) {
+      // If there's an existing cancelled token, remove it and create a fresh one
+      const existingToken = this.activeBroadcasts.get(source);
+      if (!existingToken || existingToken.cancelled) {
         this.activeBroadcasts.set(source, { cancelled: false });
       }
       const cancelToken = this.activeBroadcasts.get(source);

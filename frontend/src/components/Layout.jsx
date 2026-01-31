@@ -1,6 +1,6 @@
 import React, { useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
-import { LayoutDashboard, Workflow, BarChart3, Settings, Cpu as CpuIcon, FileText, Volume2, Radio, Wifi, Bluetooth, Cpu } from 'lucide-react'
+import { LayoutDashboard, Workflow, BarChart3, Settings, Cpu as CpuIcon, FileText, Volume2, Radio, Wifi, Bluetooth, Cpu, Camera } from 'lucide-react'
 import GPIOMonitor from './GPIOMonitor'
 
 const Layout = ({ children }) => {
@@ -13,6 +13,7 @@ const Layout = ({ children }) => {
     { path: '/analytics', icon: BarChart3, label: 'Analytics' },
     { path: '/interfaces', icon: CpuIcon, label: 'Interfaces' },
     { path: '/devices', icon: Radio, label: 'Devices' },
+    { path: '/cameras', icon: Camera, label: 'Cameras' },
     { path: '/xbee', icon: Wifi, label: 'XBee Monitor' },
     { path: '/bluetooth', icon: Bluetooth, label: 'Bluetooth' },
     { path: '/audio', icon: Volume2, label: 'Audio Library' },

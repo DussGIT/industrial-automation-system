@@ -11,6 +11,8 @@ const settingsApi = require('./settings');
 const devicesApi = require('./devices');
 const gpioApi = require('./gpio');
 const systemApi = require('./system');
+const deviceDefinitionsApi = require('./device-definitions');
+const cameraEventsApi = require('./camera-events');
 
 // Mount route modules
 router.use('/', flowsApi.router);
@@ -24,6 +26,8 @@ router.use('/settings', settingsApi);
 router.use('/', devicesApi);
 router.use('/gpio', gpioApi);
 router.use('/system', systemApi);
+router.use('/', deviceDefinitionsApi);
+router.use('/', cameraEventsApi);
 
 // API info
 router.get('/', (req, res) => {
@@ -40,6 +44,11 @@ router.get('/', (req, res) => {
       bluetooth: '/api/bluetooth',
       settings: '/api/settings',
       devices: '/api/devices',
+      deviceDefinitions: '/api/device-definitions',
+      deviceInstances: '/api/device-instances',
+      cameraEvents: '/api/events/camera/:deviceId',
+      unknownEvents: '/api/events/unknown',
+      eventHistory: '/api/events/history',
       system: '/api/system',
       health: '/health'
     }

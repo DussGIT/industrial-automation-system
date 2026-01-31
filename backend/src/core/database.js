@@ -185,6 +185,125 @@ const createTables = () => {
       updated_at INTEGER DEFAULT (strftime('%s', 'now'))
     )
   `);
+
+  // Device definitions (templates for device types)
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS device_definitions (
+      id TEXT PRIMARY KEY,
+      device_type TEXT NOT NULL,
+      manufacturer TEXT NOT NULL,
+      model TEXT NOT NULL,
+      version TEXT NOT NULL,
+      definition TEXT NOT NULL,
+      source TEXT DEFAULT 'local',
+      created_at INTEGER DEFAULT (strftime('%s', 'now')),
+      updated_at INTEGER DEFAULT (strftime('%s', 'now'))
+    )
+  `);
+
+  db.exec(`
+    CREATE INDEX IF NOT EXISTS idx_device_definitions_type 
+    ON device_definitions(device_type)
+  `);
+
+  db.exec(`
+    CREATE INDEX IF NOT EXISTS idx_device_definitions_manufacturer 
+    ON device_definitions(manufacturer, model)
+  `);
+
+  // Device instances (actual deployed devices)
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS device_instances (
+      id TEXT PRIMARY KEY,
+      definition_id TEXT,
+      name TEXT NOT NULL,
+      device_type TEXT NOT NULL,
+      ip_address TEXT,
+      config TEXT,
+      status TEXT DEFAULT 'offline',
+      last_seen INTEGER,
+      created_at INTEGER DEFAULT (strftime('%s', 'now')),
+      updated_at INTEGER DEFAULT (strftime('%s', 'now')),
+      FOREIGN KEY (definition_id) REFERENCES device_definitions(id)
+    )
+  `);
+
+  db.exec(`
+    CREATE INDEX IF NOT EXISTS idx_device_instances_type 
+    ON device_instances(device_type)
+  `);
+
+  db.exec(`
+    CREATE INDEX IF NOT EXISTS idx_device_instances_status 
+    ON device_instances(status)
+  `);
+
+  // Unknown events (for on-the-fly mapping)
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS unknown_events (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      device_id TEXT NOT NULL,
+      event_signature TEXT NOT NULL,
+      raw_payload TEXT NOT NULL,
+      first_seen INTEGER DEFAULT (strftime('%s', 'now')),
+      last_seen INTEGER DEFAULT (strftime('%s', 'now')),
+      occurrence_count INTEGER DEFAULT 1,
+      status TEXT DEFAULT 'pending',
+      notes TEXT,
+      FOREIGN KEY (device_id) REFERENCES device_instances(id)
+    )
+  `);
+
+  db.exec(`
+    CREATE INDEX IF NOT EXISTS idx_unknown_events_device 
+    ON unknown_events(device_id)
+  `);
+
+  db.exec(`
+    CREATE INDEX IF NOT EXISTS idx_unknown_events_signature 
+    ON unknown_events(event_signature)
+  `);
+
+  db.exec(`
+    CREATE INDEX IF NOT EXISTS idx_unknown_events_status 
+    ON unknown_events(status)
+  `);
+
+  // Camera events (local storage for 2 weeks to 1 month)
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS camera_events (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      device_id TEXT NOT NULL,
+      event_type TEXT NOT NULL,
+      confidence INTEGER,
+      region TEXT,
+      metadata TEXT,
+      processed_by_flows TEXT,
+      timestamp INTEGER DEFAULT (strftime('%s', 'now')),
+      expires_at INTEGER,
+      FOREIGN KEY (device_id) REFERENCES device_instances(id)
+    )
+  `);
+
+  db.exec(`
+    CREATE INDEX IF NOT EXISTS idx_camera_events_device 
+    ON camera_events(device_id)
+  `);
+
+  db.exec(`
+    CREATE INDEX IF NOT EXISTS idx_camera_events_timestamp 
+    ON camera_events(timestamp)
+  `);
+
+  db.exec(`
+    CREATE INDEX IF NOT EXISTS idx_camera_events_expires 
+    ON camera_events(expires_at)
+  `);
+
+  db.exec(`
+    CREATE INDEX IF NOT EXISTS idx_camera_events_type 
+    ON camera_events(event_type)
+  `);
 };
 
 const getDb = () => {
