@@ -1213,24 +1213,81 @@ const NodeConfigPanel = ({ node, onClose, onSave, isRunning = false }) => {
         return (
           <>
             <div>
-              <label className="block text-sm font-medium mb-2">Cancel Source</label>
-              <input
-                type="text"
-                value={config.cancelSource !== undefined ? config.cancelSource : ''}
-                onChange={(e) => setConfig({ ...config, cancelSource: e.target.value })}
+              <label className="block text-sm font-medium mb-2">Cancel Source Mode</label>
+              <select
+                value={config.sourceMode || 'payload'}
+                onChange={(e) => {
+                  const mode = e.target.value;
+                  if (mode === 'payload') {
+                    setConfig({ ...config, sourceMode: mode, cancelSource: '' });
+                  } else {
+                    setConfig({ ...config, sourceMode: mode });
+                  }
+                }}
                 className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500"
-                placeholder="e.g., button1 or {{buttonName}}"
-              />
+              >
+                <option value="payload">From Message Payload</option>
+                <option value="select">Select Source</option>
+                <option value="custom">Custom/Template</option>
+              </select>
               <p className="text-xs text-gray-400 mt-1">
-                Source identifier to cancel. Leave empty to use message payload (source, buttonName, deviceName).
-                Use template variables: <code className="bg-gray-700 px-1 rounded">{'{{buttonName}}'}</code>, <code className="bg-gray-700 px-1 rounded">{'{{payload.source}}'}</code>
+                How to determine which source to cancel
               </p>
             </div>
+
+            {config.sourceMode === 'select' && (
+              <div>
+                <label className="block text-sm font-medium mb-2">Source to Cancel</label>
+                <select
+                  value={config.cancelSource || ''}
+                  onChange={(e) => setConfig({ ...config, cancelSource: e.target.value })}
+                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="">-- Select Source --</option>
+                  <option value="button1">Button 1</option>
+                  <option value="button2">Button 2</option>
+                  <option value="button3">Button 3</option>
+                  <option value="button4">Button 4</option>
+                  <option value="button5">Button 5</option>
+                  <option value="button6">Button 6</option>
+                  <option value="button7">Button 7</option>
+                  <option value="button8">Button 8</option>
+                </select>
+                <p className="text-xs text-gray-400 mt-1">
+                  Select which button/source to cancel
+                </p>
+              </div>
+            )}
+
+            {config.sourceMode === 'custom' && (
+              <div>
+                <label className="block text-sm font-medium mb-2">Cancel Source</label>
+                <input
+                  type="text"
+                  value={config.cancelSource || ''}
+                  onChange={(e) => setConfig({ ...config, cancelSource: e.target.value })}
+                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  placeholder="e.g., {{buttonName}} or {{payload.source}}"
+                />
+                <p className="text-xs text-gray-400 mt-1">
+                  Use template variables: <code className="bg-gray-700 px-1 rounded">{'{{buttonName}}'}</code>, <code className="bg-gray-700 px-1 rounded">{'{{payload.source}}'}</code>
+                </p>
+              </div>
+            )}
+
+            {config.sourceMode === 'payload' && (
+              <div className="bg-gray-700/50 border border-gray-600 rounded-lg p-3">
+                <p className="text-xs text-gray-300">
+                  Source will be read from message payload fields: <code className="bg-gray-800 px-1 rounded text-xs">source</code>, <code className="bg-gray-800 px-1 rounded text-xs">buttonName</code>, or <code className="bg-gray-800 px-1 rounded text-xs">deviceName</code>
+                </p>
+              </div>
+            )}
+
             <div className="bg-blue-900/30 border border-blue-700 rounded-lg p-4">
               <h4 className="text-sm font-semibold text-blue-400 mb-2">How it Works</h4>
               <p className="text-xs text-gray-300">
                 This node cancels all pending broadcasts from the specified source. 
-                Each broadcast node uses a source identifier (usually the button name or device name).
+                Each broadcast node uses a source identifier (usually the button name).
                 When cancelled, any queued repeats from that source will be skipped.
               </p>
             </div>
