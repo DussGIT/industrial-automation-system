@@ -63,14 +63,6 @@ const nodeCategories = [
     ]
   },
   {
-    name: 'AWR ERM100',
-    nodes: [
-      { type: 'awr-erm100-transmit', label: 'ERM100 Transmit', icon: RadioTower, description: 'Transmit on AWR ERM100 radio' },
-      { type: 'awr-erm100-channel', label: 'ERM100 Channel', icon: Hash, description: 'Set AWR ERM100 channel (0-15)' },
-      { type: 'awr-erm100-broadcast', label: 'ERM100 Broadcast', icon: Radio, description: 'Multi-channel broadcast' },
-    ]
-  },
-  {
     name: 'Input',
     nodes: [
       { type: 'gpio-in', label: 'GPIO In', icon: ChevronsRight, description: 'Read GPIO pin state' },

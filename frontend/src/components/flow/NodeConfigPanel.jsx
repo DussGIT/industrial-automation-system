@@ -18,7 +18,7 @@ const NodeConfigPanel = ({ node, onClose, onSave, isRunning = false }) => {
 
   // Load audio files if this is an audio-player node or radio-broadcast node
   useEffect(() => {
-    if (node?.data?.type === 'audio-player' || node?.data?.type === 'radio-broadcast' || node?.data?.type === 'radio-gpio-broadcast' || node?.data?.type === 'awr-erm100-transmit') {
+    if (node?.data?.type === 'audio-player' || node?.data?.type === 'radio-broadcast' || node?.data?.type === 'radio-gpio-broadcast') {
       loadAudioFiles()
     }
   }, [node?.data?.type])
