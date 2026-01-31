@@ -245,6 +245,19 @@ const NodeConfigPanel = ({ node, onClose, onSave, isRunning = false }) => {
               />
             </div>
             <div>
+              <label className="block text-sm font-medium mb-2">Radio</label>
+              <select
+                value={config.radioId || 'default'}
+                onChange={(e) => setConfig({ ...config, radioId: e.target.value })}
+                className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="default">ERM100 Primary</option>
+              </select>
+              <p className="text-xs text-gray-400 mt-1">
+                Select which radio to control
+              </p>
+            </div>
+            <div>
               <label className="block text-sm font-medium mb-2">Action</label>
               <select
                 value={config.action || 'pulse'}
@@ -511,6 +524,19 @@ const NodeConfigPanel = ({ node, onClose, onSave, isRunning = false }) => {
                 className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500"
                 placeholder="Optional name"
               />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-2">Radio</label>
+              <select
+                value={config.radioId || 'default'}
+                onChange={(e) => setConfig({ ...config, radioId: e.target.value })}
+                className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="default">ERM100 Primary</option>
+              </select>
+              <p className="text-xs text-gray-400 mt-1">
+                Select which radio to control
+              </p>
             </div>
             <div>
               <label className="block text-sm font-medium mb-2">Channel (0-15)</label>
@@ -991,6 +1017,19 @@ const NodeConfigPanel = ({ node, onClose, onSave, isRunning = false }) => {
                 className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500"
                 placeholder="Optional name"
               />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-2">Radio</label>
+              <select
+                value={config.radioId || 'default'}
+                onChange={(e) => setConfig({ ...config, radioId: e.target.value })}
+                className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="default">ERM100 Primary</option>
+              </select>
+              <p className="text-xs text-gray-400 mt-1">
+                Select which radio to broadcast on
+              </p>
             </div>
             <div>
               <label className="block text-sm font-medium mb-2">Audio Source *</label>
