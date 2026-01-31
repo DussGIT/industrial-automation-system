@@ -14,7 +14,8 @@ import {
   Volume2,
   RadioTower,
   Lightbulb,
-  Timer
+  Timer,
+  XCircle
 } from 'lucide-react'
 
 const nodeIcons = {
@@ -34,6 +35,7 @@ const nodeIcons = {
   'audio-player': Volume2,
   'radio-broadcast': RadioTower,
   'radio-gpio-broadcast': RadioTower,
+  'cancel-broadcast': XCircle,
 }
 
 const nodeColors = {
@@ -60,6 +62,7 @@ const nodeColors = {
   'audio-player': 'bg-purple-600',
   'radio-broadcast': 'bg-pink-600',
   'radio-gpio-broadcast': 'bg-pink-600',
+  'cancel-broadcast': 'bg-red-600',
   
   // Other
   trigger: 'bg-indigo-500',

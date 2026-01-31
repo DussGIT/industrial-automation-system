@@ -16,7 +16,8 @@ import {
   ChevronsRight,
   Hash,
   Mic,
-  Timer
+  Timer,
+  XCircle
 } from 'lucide-react'
 
 const nodeCategories = [
@@ -56,7 +57,8 @@ const nodeCategories = [
     name: 'Output',
     nodes: [
       { type: 'audio-player', label: 'Audio Player', icon: Volume2, description: 'Play audio files on computer speakers' },
-      { type: 'radio-gpio-broadcast', label: 'Radio GPIO Broadcast', icon: RadioTower, description: 'Set channel, wait for clear, and broadcast audio via GPIO' },
+      { type: 'radio-gpio-broadcast', label: 'Send Message', icon: RadioTower, description: 'Broadcast message via radio with repeat' },
+      { type: 'cancel-broadcast', label: 'Cancel Broadcast', icon: XCircle, description: 'Cancel pending radio broadcasts from a source' },
       { type: 'gpio-out', label: 'GPIO Out', icon: Zap, description: 'Set GPIO pin high or low' },
       { type: 'radio-ptt', label: 'Radio PTT', icon: Mic, description: 'Control Push To Talk' },
       { type: 'radio-channel', label: 'Radio Channel', icon: Hash, description: 'Select radio channel (0-15)' },

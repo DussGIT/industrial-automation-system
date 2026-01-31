@@ -36,6 +36,7 @@ class RadioGPIOBroadcastNode extends BaseNode {
     this.waitForClear = nodeConfig.waitForClear !== undefined ? nodeConfig.waitForClear : false; // Changed default to false
     this.clearChannelTimeout = nodeConfig.clearChannelTimeout || 5000; // ms
     this.repeat = nodeConfig.repeat || 1;
+    this.repeatDelay = nodeConfig.repeatDelay || 0; // ms delay between repeats
     
     const finalValues = {
       radioId: this.radioId,
@@ -216,17 +217,80 @@ class RadioGPIOBroadcastNode extends BaseNode {
     this.log(`Adding broadcast to global queue (current queue: ${queueLength})`, 'info');
     
     try {
-      // Pass metadata for queue tracking
+      // Determine source for cancellation tracking
+      const source = msg.payload?.source 
+                  || msg.payload?.buttonName 
+                  || msg.payload?.deviceName
+                  || this.name 
+                  || 'unknown';
+      
+      // Get repeat config (can be overridden by message)
+      const repeat = msg.payload?.repeat !== undefined ? msg.payload.repeat : this.repeat;
+      const repeatDelay = msg.payload?.repeatDelay !== undefined ? msg.payload.repeatDelay : this.repeatDelay;
+      
+      // Enqueue first broadcast
       const metadata = {
         nodeName: this.name || 'Radio Broadcast',
+        source,
         channel: this.channel,
-        audioSource: this.audioSource
+        audioSource: this.audioSource,
+        currentRepeat: 1,
+        totalRepeats: repeat
       };
       
-      await this.broadcastQueue.enqueue(() => this.processBroadcast(msg), metadata);
-      this.log('Broadcast completed', 'info');
+      await this.broadcastQueue.enqueue(
+        () => this.processBroadcastWithRepeat(msg, metadata, repeatDelay),
+        metadata
+      );
+      
+      this.log(`Broadcast sequence initiated (${repeat} repeats)`, 'info');
     } catch (error) {
       this.log(`Broadcast failed: ${error.message}`, 'error');
+    }
+  }
+
+  /**
+   * Process broadcast with repeat logic
+   */
+  async processBroadcastWithRepeat(msg, metadata, repeatDelay) {
+    const { source, currentRepeat, totalRepeats } = metadata;
+    
+    this.log(`Broadcasting (${currentRepeat}/${totalRepeats}) from ${source}`, 'info');
+    
+    // Execute the actual broadcast
+    await this.processBroadcast(msg);
+    
+    // Schedule next repeat if needed
+    if (currentRepeat < totalRepeats) {
+      const nextRepeat = currentRepeat + 1;
+      
+      // Use setTimeout to schedule next repeat (non-blocking)
+      setTimeout(() => {
+        // Check if this source was cancelled before re-queuing
+        const cancelToken = this.broadcastQueue.activeBroadcasts.get(source);
+        if (cancelToken && cancelToken.cancelled) {
+          this.log(`Repeat ${nextRepeat} cancelled for ${source}`, 'info');
+          return;
+        }
+        
+        // Enqueue next repeat
+        const nextMetadata = {
+          ...metadata,
+          currentRepeat: nextRepeat,
+          queuedAt: Date.now()
+        };
+        
+        this.broadcastQueue.enqueue(
+          () => this.processBroadcastWithRepeat(msg, nextMetadata, repeatDelay),
+          nextMetadata
+        );
+        
+        this.log(`Scheduled repeat ${nextRepeat}/${totalRepeats} for ${source} (delay: ${repeatDelay}ms)`, 'info');
+      }, repeatDelay);
+    } else {
+      // All repeats complete, clean up cancel token
+      this.broadcastQueue.activeBroadcasts.delete(source);
+      this.log(`All repeats completed for ${source}`, 'info');
     }
   }
 
@@ -248,7 +312,6 @@ class RadioGPIOBroadcastNode extends BaseNode {
       let audioFileId = this.audioFileId;
       let ttsText = this.ttsText;
       let channel = this.channel;
-      let repeat = this.repeat;
 
       if (msg.payload && typeof msg.payload === 'object') {
         if (msg.payload.audioSource) {
@@ -262,9 +325,6 @@ class RadioGPIOBroadcastNode extends BaseNode {
         }
         if (msg.payload.channel !== undefined) {
           channel = parseInt(msg.payload.channel);
-        }
-        if (msg.payload.repeat !== undefined) {
-          repeat = Math.max(1, Math.min(10, msg.payload.repeat));
         }
       }
 
@@ -362,9 +422,9 @@ class RadioGPIOBroadcastNode extends BaseNode {
         // Delay for PTT to settle and radio to stabilize
         await new Promise(resolve => setTimeout(resolve, 500));
 
-        // Step 4: Play audio
+        // Step 4: Play audio (single play, repeats handled by queue)
         this.log('Starting audio playback', 'info');
-        const totalAudioDuration = await this.playAudio(filepath, repeat);
+        const totalAudioDuration = await this.playAudio(filepath, 1);
         this.log('Audio playback complete', 'info');
         
         // Keep PTT active for buffer drain - use 30% of audio duration or min 500ms, max 2000ms
@@ -397,7 +457,6 @@ class RadioGPIOBroadcastNode extends BaseNode {
         channel: channel,
         audioSource: audioSource,
         audioName: audioName,
-        repeat: repeat,
         success: true,
         timestamp: Date.now()
       };

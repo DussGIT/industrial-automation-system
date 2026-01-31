@@ -1191,6 +1191,49 @@ const NodeConfigPanel = ({ node, onClose, onSave, isRunning = false }) => {
                 Number of times to play the audio (1-10)
               </p>
             </div>
+            <div>
+              <label className="block text-sm font-medium mb-2">Repeat Delay (ms)</label>
+              <input
+                type="number"
+                value={config.repeatDelay !== undefined ? config.repeatDelay : 0}
+                onChange={(e) => setConfig({ ...config, repeatDelay: parseInt(e.target.value) })}
+                className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500"
+                min="0"
+                max="60000"
+                step="1000"
+              />
+              <p className="text-xs text-gray-400 mt-1">
+                Delay between repeats in milliseconds (0-60000ms)
+              </p>
+            </div>
+          </>
+        )
+
+      case 'cancel-broadcast':
+        return (
+          <>
+            <div>
+              <label className="block text-sm font-medium mb-2">Cancel Source</label>
+              <input
+                type="text"
+                value={config.cancelSource !== undefined ? config.cancelSource : ''}
+                onChange={(e) => setConfig({ ...config, cancelSource: e.target.value })}
+                className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500"
+                placeholder="e.g., button1 or {{buttonName}}"
+              />
+              <p className="text-xs text-gray-400 mt-1">
+                Source identifier to cancel. Leave empty to use message payload (source, buttonName, deviceName).
+                Use template variables: <code className="bg-gray-700 px-1 rounded">{'{{buttonName}}'}</code>, <code className="bg-gray-700 px-1 rounded">{'{{payload.source}}'}</code>
+              </p>
+            </div>
+            <div className="bg-blue-900/30 border border-blue-700 rounded-lg p-4">
+              <h4 className="text-sm font-semibold text-blue-400 mb-2">How it Works</h4>
+              <p className="text-xs text-gray-300">
+                This node cancels all pending broadcasts from the specified source. 
+                Each broadcast node uses a source identifier (usually the button name or device name).
+                When cancelled, any queued repeats from that source will be skipped.
+              </p>
+            </div>
           </>
         )
 
